@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Prakshab Adhikari. Electrical engineering at Columbia. Building drones from the transistor up.">
+<title>Prakshab Adhikari</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Base reset (needed when the page runs on its own) */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+
+/* Layout: one 680px reading column on paper. The ASCII figure is the only loud
+   element; everything under it is set like an essay. Single committed look. */
+:root {
+  --paper: #F3EEE2;
+  --ink: #1C1A16;
+  --muted: #6F685A;
+  --rule: #D9D1BF;
+  --accent: #2E5E52;            /* solder-mask green, kept for links only */
+  --warn: #A2502A;              /* low-battery warning */
+  --type: "Courier Prime", "Courier New", Courier, ui-monospace, monospace;   /* typewriter face for all text */
+  --step--1: 0.8125rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.1875rem;
+  --step-2: clamp(1.9rem, 8vw, 3rem);
+  color-scheme: light;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--step-0)/1.65 var(--type);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: var(--ink); color: var(--paper); }
+
+.page {
+  max-width: 680px;
+  margin-inline: auto;
+  padding-block: clamp(1.5rem, 5vw, 3.5rem) 3rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: content-box;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible, canvas:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 1px;
+}
+
+p { margin: 0; }
+h1, h2 { margin: 0; text-wrap: balance; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 0; width: 100%; }
+
+.stack { display: flex; flex-direction: column; gap: 2.5rem; }
+.section { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: 1.5rem; }
+.section h2 { font-size: var(--step-1); font-weight: 700; line-height: 1.3; }
+
+/* Hero */
+.hero { display: flex; flex-direction: column; gap: 1.75rem; }
+.figure { display: flex; flex-direction: column; gap: 0.6rem; margin: 0; }
+.ascii {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 100 / 62;
+  touch-action: pan-y;
+}
+.ascii canvas { display: block; width: 100%; height: 100%; }
+.caption, .label {
+  font: 400 var(--step--1)/1.5 var(--type);
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.name {
+  font-size: var(--step-2);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+.tagline { font-size: var(--step-1); line-height: 1.45; max-width: 30em; }
+.intro { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.placeholder { color: var(--muted); font-style: italic; }
+
+/* Lists */
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.projects { gap: 1.5rem; }
+.projects li { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.projects strong { font-weight: 700; }
+.writing { gap: 0.4rem; }
+.writing a { font-style: italic; }
+
+.contact { display: flex; flex-wrap: wrap; gap: 0.25rem 0.6rem; }
+.contact .k { color: var(--muted); }
+.dot { color: var(--muted); }
+
+footer {
+  margin-top: 2.5rem;
+  display: flex; flex-direction: column; gap: 1rem;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+footer .links { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; }
+
+/* Post view */
+.post { display: flex; flex-direction: column; gap: 1.5rem; }
+.post h1 { font-size: clamp(1.6rem, 6vw, 2.2rem); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; }
+.post .body { display: flex; flex-direction: column; gap: 1.1rem; }
+.post code { font: 700 1em var(--type); }
+
+/* Mouse-sensitivity slider under the dock (hidden on touch-only screens, where there is no mouse) */
+.tune {
+  align-self: center;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4rem 0.7rem;
+  font: 400 var(--step--1)/1.5 var(--type);
+  color: var(--muted);
+}
+.tune input { accent-color: var(--accent); width: 9rem; max-width: 100%; margin: 0; }
+.tune output { min-width: 2.2em; color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (hover: none) { .tune { display: none; } }
+
+/* Battery counter in the corner: shows the little drone's charge; click it to go to the dock */
+.battery {
+  position: fixed; z-index: 21;
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  margin: 0; padding: 3px 7px;
+  font: 600 11px/1.4 "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre;
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule); border-radius: 2px;
+  cursor: pointer;
+}
+.battery:hover { border-color: currentColor; }
+.battery:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.battery.charging { color: var(--accent); }
+.battery.low { color: var(--warn); border-color: var(--warn); }
+.battery.empty { animation: battery-blink 1.1s steps(2, jump-none) infinite; }
+@keyframes battery-blink { from { opacity: 1; } to { opacity: 0.45; } }
+
+/* Charging dock at the foot of the page; the little drone lands on its top line */
+.dock { align-self: center; display: flex; flex-direction: column; align-items: center; gap: 0.45rem; margin-top: 3rem; }
+.station {
+  margin: 0;
+  font: 600 11px/1.15 "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;   /* same size as the drone */
+  color: var(--ink);
+  white-space: pre;
+}
+.station.on #dock-bar { color: var(--accent); }
+
+/* Scroll buddy: the little drone that flies around the window */
+.buddy {
+  position: fixed; left: 0; top: 0; z-index: 20; margin: 0;
+  font: 600 11px/1.15 "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color: var(--ink);
+  white-space: pre;
+  text-shadow: 0 0 2px var(--paper), 0 0 6px var(--paper);   /* a paper halo keeps it readable over text */
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+  will-change: transform;
+  transform: translate3d(-300px, -300px, 0);
+  opacity: 0;                      /* stays out of sight until the top art has scrolled away */
+  transition: opacity 0.2s;
+}
+.buddy .prop { color: var(--accent); }
+.buddy.dead { pointer-events: auto; cursor: grab; touch-action: none; }   /* out of power: it can be picked up */
+.buddy.held { cursor: grabbing; }
+.sparks { position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; }
+.sparks span {
+  position: absolute; left: 0; top: 0;
+  font: 600 12px/1 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color: var(--accent);
+  will-change: transform, opacity;
+}
+
+@media (max-width: 480px) {
+  .buddy, .station { font-size: 9.5px; }
+  .battery { font-size: 10px; }
+  :root { --step-0: 1rem; --step-1: 1.0625rem; }
+  .ascii { aspect-ratio: 100 / 80; }
+  .stack { gap: 2rem; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <main id="home" class="stack">
+    <header class="hero">
+      <figure class="figure">
+        <div class="ascii" id="ascii">
+          <canvas id="art" role="img" aria-label="Shaded 3D ASCII drawing of a spinning quadcopter that dissolves into the name Prak in extruded 3D letters and back."></canvas>
+        </div>
+        <figcaption class="caption" id="caption">fig. 1 &nbsp; quadcopter in hover</figcaption>
+      </figure>
+      <div class="intro">
+        <h1 class="name">Prakshab Adhikari</h1>
+        <p class="tagline">Electrical engineering at Columbia. Building drones and other cool shit.</p>
+      </div>
+    </header>
+
+    <hr>
+
+    <section class="section" id="about">
+      <h2>About</h2>
+      <p>I'm an electrical engineering major and computer science minor at Columbia. I want to design chips, and I want to push the commercial drone industry forward. Most of what I build sits where those two meet: power electronics, flight controllers, and the silicon underneath them.</p>
+      <p>Always looking for a chance to learn and grow, would love to work with anyone in the space</p>
+    </section>
+
+    <hr>
+
+    <section class="section" id="projects">
+      <h2>Projects</h2>
+      <ul class="list projects" id="project-list"></ul>
+    </section>
+
+    <hr>
+
+    <section class="section" id="writing">
+      <h2>Writing / Notes</h2>
+      <ul class="list writing" id="post-list"></ul>
+    </section>
+
+    <hr>
+
+    <section class="section" id="contact">
+      <h2>Contact</h2>
+      <p class="contact" id="contact-line"></p>
+    </section>
+  </main>
+
+  <article id="post" class="post" hidden>
+    <p><a href="#home">&larr; Home</a></p>
+    <header class="intro">
+      <h1 id="post-title"></h1>
+      <p class="label" id="post-meta"></p>
+    </header>
+    <hr>
+    <div class="body" id="post-body"></div>
+  </article>
+
+  <footer>
+    <hr>
+    <div class="links">
+      <a href="#about">About</a><span class="dot">·</span>
+      <a href="#projects">Projects</a><span class="dot">·</span>
+      <a href="#writing">Writing</a><span class="dot">·</span>
+      <a href="#contact">Contact</a><span class="dot">·</span>
+      <span>© 2026 Prakshab Adhikari</span>
+    </div>
+    <div class="dock" aria-hidden="true">
+<pre class="station" id="station">   _______________   
+  /_______________\  
+<span id="dock-bar">[  ..........    -- ]</span></pre>
+      <span class="label" id="dock-label">dock 01 &middot; empty</span>
+    </div>
+    <div class="tune" id="tune">
+      <label for="sense">Drone's mouse sensitivity</label>
+      <input type="range" id="sense" min="0" max="10" step="1" value="5">
+      <output id="sense-out" for="sense">5</output>
+      <span>(higher drains the battery faster)</span>
+    </div>
+  </footer>
+</div>
+
+<pre class="buddy" id="buddy" aria-hidden="true"><span class="prop">--o--</span>   <span class="prop">--o--</span>
+  '-.[=].-'  
+    /   \    </pre>
+<div class="sparks" id="sparks" aria-hidden="true"></div>
+<button type="button" class="battery" id="battery" hidden aria-label="Drone battery">[##########] 100%</button>
+
+<script>
+/* ───────────── Content: edit these three blocks ───────────── */
+const PROJECTS = [
+  {
+    title: "Custom drone ESC & flight controller",
+    label: "CU Robotics · Drone subteam · EE lead",
+    text: "I lead a seven-person electrical team building a drone from scratch, with our own electronic speed controller and flight controller in place of off-the-shelf boards.",
+    link: ""
+  },
+  {
+    title: "Analog / mixed-signal IC design",
+    label: "Columbia IEEE · GF180 · Xschem · Ngspice",
+    text: "Part of Columbia IEEE's open-source IC design initiative, learning analog and mixed-signal design on the GF180 process with open tools.",
+    link: ""
+  },
+  {
+    title: "24 V → 3.3 V buck converter",
+    label: "CUFR · Altium",
+    text: "A buck converter block that steps a 24 V rail down to 3.3 V, taken from schematic to layout in Altium.",
+    link: ""
+  },
+  {
+    title: "Nand2Tetris",
+    label: "Computer architecture",
+    text: "Working through the Nand2Tetris course: a computer built up from NAND gates, through the CPU, to the software that runs on it.",
+    link: ""
+  }
+];
+
+const POSTS = [
+  {
+    slug: "esc-notes",
+    title: "Notes on building an ESC from scratch",
+    meta: "Draft · date to add",
+    body: [
+      "This is a placeholder post. Replace it with your own writing.",
+      "Posts use the same column, type and spacing as the home page, so a long essay reads the same way the front page does. Links are underlined, and part numbers or signal names can go in monospace."
+    ]
+  },
+  {
+    slug: "analog-ic-notes",
+    title: "What I'm learning about analog IC design",
+    meta: "Draft · date to add",
+    body: [
+      "This is a placeholder post. Replace it with your own writing.",
+      "A good first version could be a running log: what you simulated this week, what broke, and what you would do differently."
+    ]
+  }
+];
+
+const CONTACT = { email: "pa2787@columbia.edu", github: "https://github.com/coolerzanu", linkedin: "www.linkedin.com/in/prakshab-adhikari" };   // fill these in
+
+/* ───────────── Render content ───────────── */
+const $ = (id) => document.getElementById(id);
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+(function renderProjects() {
+  const ul = $("project-list");
+  PROJECTS.forEach((p) => {
+    const li = el("li");
+    li.appendChild(el("strong", null, p.title));
+    li.appendChild(el("span", "label", p.label));
+    const d = el("span", null, p.text + " ");
+    if (p.link) {
+      const a = el("a", null, "Read more");
+      a.href = p.link;
+      d.appendChild(a);
+    }
+    li.appendChild(d);
+    ul.appendChild(li);
+  });
+})();
+
+(function renderPostList() {
+  const ul = $("post-list");
+  POSTS.forEach((p) => {
+    const li = el("li");
+    const a = el("a", null, p.title);
+    a.href = "#post-" + p.slug;
+    li.appendChild(a);
+    ul.appendChild(li);
+  });
+})();
+
+(function renderContact() {
+  const line = $("contact-line");
+  const items = [
+    ["Email", CONTACT.email, false],
+    ["GitHub", CONTACT.github, true],
+    ["LinkedIn", CONTACT.linkedin, true]
+  ];
+  items.forEach(([k, v, isLink], i) => {
+    const wrap = el("span");
+    wrap.appendChild(el("span", "k", k + ": "));
+    if (!v) wrap.appendChild(el("span", "placeholder", "to add"));
+    else if (isLink) {
+      const url = /^https?:\/\//.test(v) ? v : "https://" + v;   // accept links typed without https://
+      const a = el("a", null, url.replace(/^https?:\/\/(www\.)?/, ""));
+      a.href = url;
+      wrap.appendChild(a);
+    } else wrap.appendChild(el("span", null, v));
+    line.appendChild(wrap);
+    if (i < items.length - 1) line.appendChild(el("span", "dot", "·"));
+  });
+})();
+
+/* ───────────── Routing: #post-<slug> opens a post ───────────── */
+function route() {
+  const id = location.hash.slice(1);
+  const post = POSTS.find((p) => "post-" + p.slug === id);
+  $("home").hidden = !!post;
+  $("post").hidden = !post;
+  if (post) {
+    $("post-title").textContent = post.title;
+    $("post-meta").textContent = post.meta;
+    const body = $("post-body");
+    body.textContent = "";
+    post.body.forEach((t) => body.appendChild(el("p", null, t)));
+    window.scrollTo(0, 0);
+  } else if (id && id !== "home") {
+    const target = $(id);
+    if (target) target.scrollIntoView();
+  } else if (id === "home") {
+    window.scrollTo(0, 0);
+  }
+}
+window.addEventListener("hashchange", route);
+route();
+
+/* ───────────── ASCII figure ───────────── */
+(function asciiFigure() {
+  const wrap = $("ascii");
+  const canvas = $("art");
+  const caption = $("caption");
+  const ctx = canvas.getContext("2d");
+  const MONO = '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+  const RAMP = ".:-=+*#%@/\\|";
+  const HOLD = 6, TRANS = 3.5, PERIOD = 2 * (HOLD + TRANS);
+  // Forest-green tones for the name, lit to shadowed: deep greens for the letter faces, paler ones for the side walls.
+  const FACE = ["#2F7A62", "#2A6C57", "#255E4C", "#205142", "#1B4438"];
+  const SIDE = ["#A9CBBC", "#97BFAE", "#85B3A0", "#73A792", "#619B84"];
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  let W = 0, H = 0, fs = 11.5, cw = 7, ch = 14, cols = 0, rows = 0, ox = 0, oy = 0;
+  let halfW = 1.6;
+  let energy = new Float32Array(0);
+  let ink = "#1C1A16", raf = 0, last = 0, t0 = null, visible = true, captionState = -1;
+
+  function hash(i, j, k) {
+    let h = Math.imul(i | 0, 374761393) ^ Math.imul(j | 0, 668265263) ^ Math.imul(k | 0, 1442695041);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  }
+
+  function layout() {
+    const rect = wrap.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+    W = rect.width; H = rect.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fs = W < 480 ? 11 : 11.5;                       // fewer, larger cells on phones
+    ctx.font = fs + "px " + MONO;
+    cw = ctx.measureText("M").width || fs * 0.6;
+    ch = fs * 1.2;
+    cols = Math.max(24, Math.floor(W / cw));
+    rows = Math.max(12, Math.floor(H / ch));
+    ox = (W - cols * cw) / 2;
+    oy = (H - rows * ch) / 2;
+    halfW = (cols * cw) / (rows * ch);
+    energy = new Float32Array(cols * rows);
+    ink = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || ink;
+    buildName();
+    return true;
+  }
+
+  /* 3D renderer: signed-distance scenes, sphere-traced and shaded, two rays per character cell.
+     Scene 0 is the quadcopter, scene 1 is the name in extruded letters. */
+  const INK = ".:-=+*#%@";
+  const CAM_D = 5, ARM = 0.8, PROP_Y = 0.2, PROP_R = 0.4;
+  const ALB = [0.7, 0.45, 0.16, 0.95, 0.82, 0.5], KS = [0.25, 0.15, 0.9, 0.6, 0.6, 0.45], SHIN = [14, 14, 40, 26, 14, 22];
+  const Rm = new Float64Array(9);
+  let scene = 0, matId = 0, focal = 3.9, sinE = 0, cosE = 1, look = 0, spin = 0, boundR2 = 2.66;
+  let camX = 0, camY = 0, camZ = 0, lX = 0, lY = 1, lZ = 0, uX = 0, uY = 1, uZ = 0;
+
+  // Object rotation (local -> world: Rx(pitch) * Rz(roll) * Ry(yaw)), camera elevation, and key light.
+  function setView(yaw, pitch, roll, elev, bob, ax, ay, az) {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const cr = Math.cos(roll), sr = Math.sin(roll);
+    Rm[0] = cr * cy;                Rm[1] = -sr;     Rm[2] = cr * sy;
+    Rm[3] = cp * sr * cy + sp * sy; Rm[4] = cp * cr; Rm[5] = cp * sr * sy - sp * cy;
+    Rm[6] = sp * sr * cy - cp * sy; Rm[7] = sp * cr; Rm[8] = sp * sr * sy + cp * cy;
+    sinE = Math.sin(elev); cosE = Math.cos(elev);
+    const wy = CAM_D * sinE - bob, wz = -CAM_D * cosE;
+    camX = Rm[3] * wy + Rm[6] * wz; camY = Rm[4] * wy + Rm[7] * wz; camZ = Rm[5] * wy + Rm[8] * wz;
+    lX = Rm[0] * ax + Rm[3] * ay + Rm[6] * az;
+    lY = Rm[1] * ax + Rm[4] * ay + Rm[7] * az;
+    lZ = Rm[2] * ax + Rm[5] * ay + Rm[8] * az;
+    uX = Rm[3]; uY = Rm[4]; uZ = Rm[5];
+  }
+  function setupDrone(t) {
+    scene = 0; look = 0.16; boundR2 = 1.63 * 1.63;
+    setView(t * 0.55, 0.1 * Math.sin(t * 0.7 + 1), 0.12 * Math.sin(t * 0.9), 0.56, 0.04 * Math.sin(t * 1.3), -0.43, 0.765, -0.478);
+    focal = 3.9 * Math.min(1, halfW / 1.5);
+    spin = t * 13;
+  }
+  function setupName(t) {
+    scene = 1; look = 0; boundR2 = nameR2;
+    // turned a little to one side on average, so the side walls of the letters always show
+    setView(YAW0 + nameYaw * Math.sin(t * 0.55), PITCH0 + 0.1 * Math.sin(t * 0.4 + 0.5), 0, 0.06, 0, -0.5, 0.62, -0.6);
+    focal = 2.5 * halfW;
+  }
+
+  /* ── Scene 1: the name, as stroke letters extruded into slabs ── */
+  const NAME = "PRAK", YAW0 = -0.2, PITCH0 = 0.06;
+  let HZ = 0.1, PITCH = 0.42, LW = 0.28;       // set in buildName() from the length of NAME
+  const GLYPH = {
+    P: [[0, 0, 0, 1], [0, 1, 0.7, 1], [0.7, 1, 1, 0.82], [1, 0.82, 1, 0.64], [1, 0.64, 0.7, 0.46], [0.7, 0.46, 0, 0.46]],
+    R: [[0, 0, 0, 1], [0, 1, 0.7, 1], [0.7, 1, 1, 0.82], [1, 0.82, 1, 0.64], [1, 0.64, 0.7, 0.46], [0.7, 0.46, 0, 0.46], [0.5, 0.46, 1, 0]],
+    A: [[0, 0, 0.5, 1], [0.5, 1, 1, 0], [0.2, 0.34, 0.8, 0.34]],
+    K: [[0, 0, 0, 1], [0, 0.38, 1, 1], [0.36, 0.6, 1, 0]],
+    S: [[1, 0.84, 0.76, 1], [0.76, 1, 0.24, 1], [0.24, 1, 0, 0.84], [0, 0.84, 0, 0.66], [0, 0.66, 0.24, 0.5], [0.24, 0.5, 0.76, 0.5],
+        [0.76, 0.5, 1, 0.34], [1, 0.34, 1, 0.16], [1, 0.16, 0.76, 0], [0.76, 0, 0.24, 0], [0.24, 0, 0, 0.16]],
+    H: [[0, 0, 0, 1], [1, 0, 1, 1], [0, 0.5, 1, 0.5]],
+    B: [[0, 0, 0, 1], [0, 1, 0.66, 1], [0.66, 1, 0.9, 0.87], [0.9, 0.87, 0.9, 0.66], [0.9, 0.66, 0.66, 0.53], [0.66, 0.53, 0, 0.53],
+        [0.66, 0.53, 1, 0.39], [1, 0.39, 1, 0.15], [1, 0.15, 0.72, 0], [0.72, 0, 0, 0]]
+  };
+  let nameSegs = [], nameBuf = new Float32Array(0), nameR2 = 3, nameX0 = 0, nameYaw = 0.2, SW = 0.048;
+  // Per cell: which surface of the letters shows (0 none, 1 front face, 2 side wall), which letter, and coverage.
+  let nameKind = new Uint8Array(0), nameLet = new Uint8Array(0), nameCov = new Uint8Array(0);
+  let nameHit = 0, rayKind = 0, rayK = 0;
+
+  function buildName() {
+    const narrow = halfW < 1.4;                          // taller, condensed letters on phones
+    const k = 8 / NAME.length;                           // sizes were drawn for 8 letters; scale to fill the same width
+    PITCH = 0.42 * k; LW = 0.28 * k;
+    HZ = 0.14 * Math.min(k, 1.7);
+    const LH = narrow ? Math.min(1.05 * k, 1.5) : Math.min(0.66 * k, 1.3);
+    SW = (narrow ? 0.055 : 0.048) * Math.min(k, 1.8);
+    nameYaw = narrow ? 0.14 : 0.2;
+    const total = (NAME.length - 1) * PITCH + LW;
+    nameX0 = -total / 2;
+    nameSegs = [];
+    for (let k = 0; k < NAME.length; k++) {
+      const g = GLYPH[NAME[k]], a = new Float64Array(g.length * 4), bx = nameX0 + k * PITCH;
+      for (let i = 0; i < g.length; i++) {
+        a[i * 4] = bx + g[i][0] * LW; a[i * 4 + 1] = (g[i][1] - 0.5) * LH;
+        a[i * 4 + 2] = bx + g[i][2] * LW; a[i * 4 + 3] = (g[i][3] - 0.5) * LH;
+      }
+      nameSegs.push(a);
+    }
+    const hx = total / 2 + SW, hy = LH / 2 + SW, rad = Math.sqrt(hx * hx + hy * hy + HZ * HZ) + 0.04;
+    nameR2 = rad * rad;
+    nameBuf = new Float32Array(cols * rows);
+    nameKind = new Uint8Array(cols * rows); nameLet = new Uint8Array(cols * rows); nameCov = new Uint8Array(cols * rows);
+  }
+  function glyphD2(a, x, y) {
+    let best = 1e9;
+    for (let i = 0; i < a.length; i += 4) {
+      const ax = a[i], ay = a[i + 1], bx = a[i + 2] - ax, by = a[i + 3] - ay, px = x - ax, py = y - ay;
+      let h = (px * bx + py * by) / (bx * bx + by * by);
+      h = h < 0 ? 0 : h > 1 ? 1 : h;
+      const qx = px - bx * h, qy = py - by * h, d = qx * qx + qy * qy;
+      if (d < best) best = d;
+    }
+    return best;
+  }
+  function mapName(x, y, z) {
+    const f = (x - nameX0 + (PITCH - LW) / 2) / PITCH;
+    let k = Math.floor(f);
+    k = k < 0 ? 0 : k > NAME.length - 1 ? NAME.length - 1 : k;
+    let d2 = glyphD2(nameSegs[k], x, y), hit = k;
+    const n = f - k < 0.5 ? k - 1 : k + 1;              // the neighbour on the nearer side
+    if (n >= 0 && n < NAME.length) { const e = glyphD2(nameSegs[n], x, y); if (e < d2) { d2 = e; hit = n; } }
+    const d = Math.sqrt(d2) - SW, w = Math.abs(z) - HZ;
+    const dp = d > 0 ? d : 0, wp = w > 0 ? w : 0;
+    matId = 5; nameHit = hit;
+    return Math.min(Math.max(d, w), 0) + Math.sqrt(dp * dp + wp * wp) - 0.012;
+  }
+
+  /* ── Scene 0: the quadcopter ── */
+  function mapDrone(x, y, z) {
+    let qx, qy, qz, mx0, my0, mz0, d, e, m = 0;
+    // fuselage
+    qx = Math.abs(x) - 0.21; qy = Math.abs(y) - 0.06; qz = Math.abs(z) - 0.4;
+    mx0 = qx > 0 ? qx : 0; my0 = qy > 0 ? qy : 0; mz0 = qz > 0 ? qz : 0;
+    d = Math.sqrt(mx0 * mx0 + my0 * my0 + mz0 * mz0) + Math.min(Math.max(qx, qy, qz), 0) - 0.05;
+    // battery pack on top
+    qx = Math.abs(x) - 0.14; qy = Math.abs(y - 0.15) - 0.035; qz = Math.abs(z - 0.04) - 0.25;
+    mx0 = qx > 0 ? qx : 0; my0 = qy > 0 ? qy : 0; mz0 = qz > 0 ? qz : 0;
+    e = Math.sqrt(mx0 * mx0 + my0 * my0 + mz0 * mz0) + Math.min(Math.max(qx, qy, qz), 0) - 0.03;
+    if (e < d) { d = e; m = 1; }
+    // camera pod at the nose
+    qy = y + 0.02; qz = z + 0.5;
+    e = Math.sqrt(x * x + qy * qy + qz * qz) - 0.11;
+    if (e < d) { d = e; m = 2; }
+    // everything else is mirrored into one quadrant
+    const ax = Math.abs(x), az = Math.abs(z);
+    // arm: capsule from the fuselage out to the motor
+    const pax = ax - 0.1, pay = y, paz = az - 0.2, bax = 0.7, bay = 0.02, baz = 0.6;
+    let h = (pax * bax + pay * bay + paz * baz) / (bax * bax + bay * bay + baz * baz);
+    h = h < 0 ? 0 : h > 1 ? 1 : h;
+    qx = pax - bax * h; qy = pay - bay * h; qz = paz - baz * h;
+    e = Math.sqrt(qx * qx + qy * qy + qz * qz) - 0.06;
+    if (e < d) { d = e; m = 0; }
+    // motor can
+    const rx = ax - ARM, rz = az - ARM, rad = Math.sqrt(rx * rx + rz * rz);
+    qx = rad - 0.115; qy = Math.abs(y - 0.07) - 0.07;
+    mx0 = qx > 0 ? qx : 0; my0 = qy > 0 ? qy : 0;
+    e = Math.min(Math.max(qx, qy), 0) + Math.sqrt(mx0 * mx0 + my0 * my0) - 0.012;
+    if (e < d) { d = e; m = 3; }
+    // landing leg under each motor
+    qy = y - (y < -0.24 ? -0.24 : y > -0.03 ? -0.03 : y);
+    e = Math.sqrt(rad * rad + qy * qy) - 0.035;
+    if (e < d) { d = e; m = 0; }
+    // prop guard: a ring around each rotor
+    qx = rad - 0.45; qy = y - 0.12;
+    e = Math.sqrt(qx * qx + qy * qy) - 0.04;
+    if (e < d) { d = e; m = 4; }
+    // prop hub
+    qy = y - 0.19;
+    e = Math.sqrt(rad * rad + qy * qy) - 0.045;
+    if (e < d) { d = e; m = 3; }
+    matId = m;
+    return d;
+  }
+
+  function map(x, y, z) { return scene ? mapName(x, y, z) : mapDrone(x, y, z); }
+
+  function trace(ox, oy, oz, dx, dy, dz) {
+    const b = ox * dx + oy * dy + oz * dz, c = ox * ox + oy * oy + oz * oz - boundR2;
+    let h = b * b - c;
+    if (h < 0) return -1;
+    h = Math.sqrt(h);
+    let t0 = -b - h, t1 = -b + h;
+    // each scene is flat along one axis, so clip the march to that slab
+    const so = scene ? oz : oy, sd = scene ? dz : dy, s0 = scene ? -(HZ + 0.04) : -0.28, s1 = scene ? HZ + 0.04 : 0.25;
+    if (Math.abs(sd) < 1e-6) { if (so < s0 || so > s1) return -1; }
+    else {
+      let ta = (s0 - so) / sd, tb = (s1 - so) / sd;
+      if (ta > tb) { const s = ta; ta = tb; tb = s; }
+      if (ta > t0) t0 = ta;
+      if (tb < t1) t1 = tb;
+    }
+    if (t0 > t1) return -1;
+    let t = t0 > 0 ? t0 : 0;
+    for (let i = 0; i < 48; i++) {
+      const d = map(ox + dx * t, oy + dy * t, oz + dz * t);
+      if (d < 0.004) return t;
+      t += d;
+      if (t > t1) return -1;
+    }
+    return -1;
+  }
+
+  function shadow(px, py, pz) {
+    let t = 0.03, res = 1;
+    for (let i = 0; i < 14; i++) {
+      const d = map(px + lX * t, py + lY * t, pz + lZ * t);
+      if (d < 0.002) return 0;
+      const k = (9 * d) / t;
+      if (k < res) res = k;
+      t += d < 0.02 ? 0.02 : d > 0.2 ? 0.2 : d;
+      if (t > 1.6) break;
+    }
+    return res;
+  }
+
+  /* One ray through screen point (sx, sy). Returns ink density 0..1 (0 = bare paper). */
+  function ray(sx, sy) {
+    sy += look;
+    rayKind = 0;
+    const wx = sx, wy = -sinE * focal - cosE * sy, wz = cosE * focal - sinE * sy;
+    const inv = 1 / Math.sqrt(wx * wx + wy * wy + wz * wz);
+    const dx = (Rm[0] * wx + Rm[3] * wy + Rm[6] * wz) * inv;
+    const dy = (Rm[1] * wx + Rm[4] * wy + Rm[7] * wz) * inv;
+    const dz = (Rm[2] * wx + Rm[5] * wy + Rm[8] * wz) * inv;
+    const th = trace(camX, camY, camZ, dx, dy, dz);
+    let ink = 0;
+    if (th > 0) {
+      const px = camX + dx * th, py = camY + dy * th, pz = camZ + dz * th, e = 0.003;
+      const m = matId, hk = nameHit;
+      const a = map(px + e, py - e, pz - e), b = map(px - e, py - e, pz + e);
+      const c = map(px - e, py + e, pz - e), d = map(px + e, py + e, pz + e);
+      let nx = a - b - c + d, ny = -a - b + c + d, nz = -a + b - c + d;
+      const nl = 1 / (Math.sqrt(nx * nx + ny * ny + nz * nz) || 1);
+      nx *= nl; ny *= nl; nz *= nl;
+      if (scene) { rayKind = Math.abs(nz) > 0.7 ? 1 : 2; rayK = hk; }
+      let ndl = nx * lX + ny * lY + nz * lZ;
+      let sh = 0;
+      if (ndl > 0) sh = shadow(px + nx * 0.015, py + ny * 0.015, pz + nz * 0.015); else ndl = 0;
+      const sky = 0.5 + 0.5 * (nx * uX + ny * uY + nz * uZ);
+      const hx = lX - dx, hy = lY - dy, hz = lZ - dz;
+      const hl = 1 / (Math.sqrt(hx * hx + hy * hy + hz * hz) || 1);
+      const ndh = Math.max(0, (nx * hx + ny * hy + nz * hz) * hl);
+      const ndv = Math.max(0, -(nx * dx + ny * dy + nz * dz));
+      const lum = ALB[m] * (0.2 * sky + 0.85 * ndl * sh) + KS[m] * Math.pow(ndh, SHIN[m]) * sh;
+      ink = 1 - lum + 0.22 * Math.pow(1 - ndv, 3);
+      ink = ink < 0.14 ? 0.14 : ink > 1 ? 1 : ink;
+    }
+    // spinning props: a translucent disc with two blurred blades, drawn over whatever is behind it
+    if (!scene && Math.abs(dy) > 1e-5) {
+      const tp = (PROP_Y - camY) / dy;
+      if (tp > 0 && (th < 0 || tp < th)) {
+        const px = camX + dx * tp, pz = camZ + dz * tp;
+        const gx = px < 0 ? -1 : 1, gz = pz < 0 ? -1 : 1;
+        const rx = px - gx * ARM, rz = pz - gz * ARM, rr = Math.sqrt(rx * rx + rz * rz);
+        if (rr < PROP_R) {
+          const cs = Math.cos(Math.atan2(rz, rx) - spin * gx * gz + gx + 2 * gz);
+          const c2 = cs * cs, blade = c2 * c2 * c2 * c2;
+          const ip = 0.1 + 0.55 * blade * Math.min(1, rr / 0.08);
+          ink = 1 - (1 - ink) * (1 - ip);
+        }
+      }
+    }
+    return ink;
+  }
+
+  function inkCell(ink, c, r) {
+    if (ink < 0.035) return null;
+    if (ink < 0.13) return hash(c, r, 7) < (ink / 0.13) * 0.8 ? [".", 0.5] : null;
+    return [INK[Math.min(8, Math.floor(ink * 9))], 0.45 + 0.55 * ink];
+  }
+  function drone(x, y, c, r) {
+    const q = 0.5 / rows;
+    return inkCell((ray(x, y - q) + ray(x, y + q)) * 0.5, c, r);
+  }
+  function renderName(t) {
+    setupName(t);
+    const q = 0.5 / rows;
+    for (let r = 0; r < rows; r++) {
+      const y = ((r + 0.5) / rows) * 2 - 1;
+      for (let c = 0; c < cols; c++) {
+        const x = (((c + 0.5) / cols) * 2 - 1) * halfW;
+        const i = r * cols + c;
+        const ia = ray(x, y - q), ka = rayKind, la = rayK;
+        const ib = ray(x, y + q), kb = rayKind, lb = rayK;
+        if (!ka && !kb) { nameKind[i] = 0; continue; }
+        const kind = ka === 1 || kb === 1 ? 1 : 2;       // a front face wins the cell over a side wall
+        nameKind[i] = kind;
+        nameLet[i] = ka === kind ? la : lb;
+        nameCov[i] = ka && kb ? 2 : 1;
+        nameBuf[i] = ka === kind && kb === kind ? (ia + ib) * 0.5 : ka === kind ? ia : ib;
+      }
+    }
+  }
+
+  function morph(t) {
+    const p = t % PERIOD;
+    let m;
+    if (p < HOLD) m = 0;
+    else if (p < HOLD + TRANS) m = (p - HOLD) / TRANS;
+    else if (p < 2 * HOLD + TRANS) m = 1;
+    else m = 1 - (p - 2 * HOLD - TRANS) / TRANS;
+    return m * m * (3 - 2 * m);
+  }
+
+  function draw(t, still) {
+    ctx.clearRect(0, 0, W, H);
+    const fontReg = fs + "px " + MONO, fontBold = "600 " + fs + "px " + MONO;
+    let curFont = fontReg, curStyle = ink;
+    ctx.font = fontReg;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = ink;
+
+    const m = still ? 0 : morph(t);
+    if (m > 0.07) renderName(t);          // the name is only needed once the dissolve has begun
+    setupDrone(t);
+    const tick = Math.floor(t * 12);
+    const sweep = ((t * 0.16) % 1) * (2 * halfW + 3) - (halfW + 1.5);
+
+    const state = m > 0.5 ? 1 : 0;
+    if (state !== captionState) {
+      captionState = state;
+      caption.textContent = state
+        ? "fig. 2   Prak"
+        : "fig. 1   quadcopter in hover";
+    }
+
+    for (let r = 0; r < rows; r++) {
+      const y = ((r + 0.5) / rows) * 2 - 1;
+      for (let c = 0; c < cols; c++) {
+        const i = r * cols + c;
+        const x = (((c + 0.5) / cols) * 2 - 1) * halfW;
+
+        // Each cell flips at its own moment: centre first, with some grain.
+        const thr = 0.12 + 0.76 * (0.6 * Math.min(1, Math.hypot(x / halfW, y) / 1.2) + 0.4 * hash(c, r, 3));
+        const dm = m - thr;
+        let s = "", a = 0, solid = false, col = "", wob = 0.14;
+        if (dm > 0.04) {
+          const kind = nameKind[i];
+          if (kind) {                                  // faces are set in the letter itself, side walls in braces
+            const tone = Math.max(0, Math.min(4, Math.floor((nameBuf[i] - 0.5) * (kind === 1 ? 12.5 : 10))));
+            s = kind === 1 ? NAME[nameLet[i]] : "{";
+            col = (kind === 1 ? FACE : SIDE)[tone];
+            a = nameCov[i] === 2 ? (kind === 1 ? 1 : 0.95) : 0.65;
+            solid = true; wob = 0.3;
+          }
+        } else if (dm < -0.04) {
+          const dn = drone(x, y, c, r);
+          if (dn) { s = dn[0]; a = dn[1]; solid = true; }
+        } else if (nameKind[i] || drone(x, y, c, r) || hash(c, r, tick) < 0.2) {
+          s = RAMP[(hash(c, r, tick + 31) * RAMP.length) | 0]; a = 0.5;
+        }
+        if (!s && hash(c, r, 11) < 0.03) { s = "."; a = 0.16; }
+
+        if (s && !still) {
+          const wave = 0.5 + 0.5 * Math.sin(x * 1.9 + y * 1.1 - t * 0.55 + Math.sin(y * 2.3 + t * 0.3));
+          if (!solid && a < 0.5 && wave < 0.16 && hash(c, r, 5) < 0.45) s = "";
+          else {
+            a *= solid ? 1 - wob + wob * wave : 0.62 + 0.38 * wave;
+            const g = x + y * 0.5 - sweep;
+            a = Math.min(1, a + Math.exp(-(g * g) / 0.012) * 0.35);
+          }
+        }
+
+        const e = energy[i];
+        if (e > 0.04) {
+          if (hash(c, r, tick + 99) < e) {
+            s = RAMP[(hash(c, r, tick + 57) * RAMP.length) | 0];
+            a = Math.max(a, 0.35 + 0.6 * e);
+          }
+          energy[i] = e * 0.9;
+        }
+
+        if (!s) continue;
+        const style = col || ink, font = col ? fontBold : fontReg;
+        if (style !== curStyle) { ctx.fillStyle = style; curStyle = style; }
+        if (font !== curFont) { ctx.font = font; curFont = font; }
+        ctx.globalAlpha = a;
+        ctx.fillText(s, ox + (c + 0.5) * cw, oy + (r + 0.5) * ch);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (now - last < 40) return;                       // ~25 fps is plenty for a slow shimmer
+    last = now;
+    if (t0 === null) t0 = now;
+    draw((now - t0) / 1000, false);
+  }
+  function start() {
+    cancelAnimationFrame(raf);
+    raf = 0;
+    if (!cols) return;
+    if (reduce.matches) { draw(1.1, true); return; }   // frozen frame, no scramble
+    if (visible) raf = requestAnimationFrame(frame);
+  }
+  function relayout() { if (layout()) start(); }
+
+  wrap.addEventListener("pointermove", (ev) => {
+    if (reduce.matches || !cols) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = ev.clientX - rect.left - ox, py = ev.clientY - rect.top - oy;
+    const R = 64;
+    const c0 = Math.max(0, Math.floor((px - R) / cw)), c1 = Math.min(cols - 1, Math.ceil((px + R) / cw));
+    const r0 = Math.max(0, Math.floor((py - R) / ch)), r1 = Math.min(rows - 1, Math.ceil((py + R) / ch));
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+      const d = Math.hypot((c + 0.5) * cw - px, (r + 0.5) * ch - py);
+      if (d < R) {
+        const i = r * cols + c;
+        energy[i] = Math.max(energy[i], 1 - d / R);
+      }
+    }
+  });
+
+  if ("ResizeObserver" in window) new ResizeObserver(relayout).observe(wrap);
+  else window.addEventListener("resize", relayout);
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      visible = entries[0].isIntersecting;
+      start();
+    }).observe(wrap);
+  }
+  if (reduce.addEventListener) reduce.addEventListener("change", start);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+  relayout();
+})();
+
+/* ───────────── Scroll buddy: a small drone that tags along, hovers in the white space, bonks into the
+   edges, flips, runs its battery down, and lands on the charging dock at the bottom of the page ───────────── */
+(function buddy() {
+  const node = $("buddy"), sparks = $("sparks"), hero = $("ascii"), art = $("art"), bat = $("battery");
+  const station = $("station"), dockBar = $("dock-bar"), dockLabel = $("dock-label");
+  const tune = $("tune"), sense = $("sense"), senseOut = $("sense-out");
+  const page = document.querySelector(".page");
+  const props = node.querySelectorAll(".prop");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const PROP = ["--o--", "==o==", " -o- ", "==o=="];
+  const SPARK = "*+x'.";
+  const FLIGHT_TIME = 120;                           // seconds a full battery would last if it ran to zero, at sensitivity 5
+  const DEAD = 0.05;                                 // the battery stops here, and so does the drone
+  const CHARGE_TIME = 7;                             // seconds on the dock from empty to full
+  const LOW = 0.15;
+  const live = [];                                   // sparks in flight
+
+  let W = 0, H = 0, hw = 45, hh = 20;                // viewport, and half the drone's size
+  let x = 0, y = 0, vx = 0, vy = 0, tx = 0, ty = 0;  // position, velocity, and where it is heading
+  let anchored = false, tpx = 0, tpy = 0;            // a hover spot is pinned to the page, so it scrolls with the text
+  let tilt = 0, flipT = 0, flipTurns = 0, flipDir = 1, squash = 0;
+  let nextPick = 0, lastPick = 0, nextTrick = 0, propFrame = -1;
+  let lastScroll = window.scrollY, last = 0, raf = 0;
+  let shown = false, entering = false, leaving = false;
+  let mode = "fly";                                  // "fly", "dock" (on approach) or "docked"
+  let dockX = 0, dockY = 0, dockOk = false;          // where its centre sits when landed, and whether the pad is reachable
+  let charge = 1, barShown = "", labelShown = "", batShown = "";
+  let shy = 1;                                       // how strongly it avoids the mouse: 0 (ignores it) to 2
+  // A dead drone can be picked up and carried: where the pointer is, how fast it is moving, and the grip offset.
+  let held = false, grabDX = 0, grabDY = 0, ptrX = 0, ptrY = 0, ptrVX = 0, ptrVY = 0, ptrT = 0, deadShown = false;
+
+  // The mouse-sensitivity slider at the bottom of the page. The setting is remembered in this browser.
+  function setShy(v, save) {
+    v = Math.max(0, Math.min(10, Math.round(v)));
+    shy = v / 5;
+    sense.value = String(v);
+    senseOut.textContent = v === 0 ? "off" : String(v);
+    if (save) { try { localStorage.setItem("drone-mouse-sensitivity", String(v)); } catch (e) {} }
+  }
+  function grounded() { return mode === "fly" && charge <= DEAD && !leaving; }   // flat battery: it comes down and sits
+
+  function measure() {
+    W = document.documentElement.clientWidth;
+    H = window.innerHeight;
+    hw = node.offsetWidth / 2 || 45;
+    hh = node.offsetHeight / 2 || 20;
+  }
+
+  // The drone only comes out once the art at the top of the page has scrolled away.
+  function pastHero() { return hero.getBoundingClientRect().bottom < 60; }
+
+  // The pad is the top line of the station; it counts as reachable when the whole station is on screen.
+  function readDock() {
+    const r = station.getBoundingClientRect();
+    dockX = r.left + r.width / 2;
+    dockY = r.top + r.height / 3 - hh + 2;
+    dockOk = r.width > 0 && r.top - 2 * hh > 30 && r.bottom < H - 2;
+  }
+  function meter(n) { return "#".repeat(n) + ".".repeat(10 - n); }
+  function showDock(state) {
+    let bar = "[  ..........    -- ]", label = "dock 01 · empty";
+    if (state) {
+      const pct = String(Math.round(charge * 100)).padStart(3, " ") + "%";
+      bar = "[  " + meter(Math.round(charge * 10)) + "  " + pct + " ]";
+      label = "dock 01 · " + (charge >= 1 ? "charged" : "charging");
+    }
+    if (!state && held) label = "dock 01 \u00B7 drop it here";
+    if (bar !== barShown) { barShown = bar; dockBar.textContent = bar; }
+    if (label !== labelShown) { labelShown = label; dockLabel.textContent = label; station.classList.toggle("on", !!state || held); }
+  }
+  // The battery counter in the corner. Clicking it scrolls to the dock, where the drone recharges.
+  function showBattery() {
+    const pct = Math.round(charge * 100);
+    const state = mode === "docked" ? (charge >= 1 ? " full" : " charging") : charge <= DEAD ? " drag to dock" : charge < LOW ? " low" : "";
+    const t = "[" + meter(Math.round(charge * 10)) + "] " + String(pct).padStart(3, " ") + "%" + state;
+    if (t === batShown) return;
+    batShown = t;
+    bat.textContent = t;
+    bat.className = "battery" + (mode === "docked" ? " charging" : charge <= DEAD ? " low empty" : charge < LOW ? " low" : "");
+    bat.setAttribute("aria-label", "Drone battery " + pct + " percent. Go to the charging dock." +
+      (charge <= DEAD && mode !== "docked" ? " The drone is out of power: drag it onto the dock." : ""));
+  }
+  function undock(now) {
+    mode = "fly";
+    showDock(false);
+    vy = -240;                                       // lift off
+    pick(now, true);
+  }
+
+  // Everything the drone should not hover over, as boxes in the window: each line of text, the art, the counter.
+  function obstacles() {
+    const out = [];
+    const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.nodeValue.trim()) continue;
+      range.selectNodeContents(n);
+      const rects = range.getClientRects();
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        if (r.width > 0 && r.bottom > 0 && r.top < H) out.push(r);
+      }
+    }
+    const a = art.getBoundingClientRect();
+    if (a.width > 0 && a.bottom > 0 && a.top < H) out.push(a);
+    if (!bat.hidden) out.push(bat.getBoundingClientRect());
+    return out;
+  }
+  // A place in the window where the whole drone fits over bare paper, or null if there is none.
+  function freeSpot() {
+    const obs = obstacles(), mx = hw + 14, my = hh + 14;
+    let best = null, bestGap = -1;
+    for (let k = 0; k < 60; k++) {
+      const cx = mx + Math.random() * Math.max(1, W - 2 * mx), cy = my + Math.random() * Math.max(1, H - 2 * my);
+      let gap = 1e9;
+      for (let i = 0; i < obs.length && gap >= 0; i++) {
+        const r = obs[i];
+        const dx = Math.max(r.left - (cx + hw), cx - hw - r.right, 0), dy = Math.max(r.top - (cy + hh), cy - hh - r.bottom, 0);
+        gap = dx === 0 && dy === 0 ? -1 : Math.min(gap, Math.hypot(dx, dy));
+      }
+      if (gap >= 12) return { x: cx, y: cy };         // comfortably clear: take it
+      if (gap > bestGap) { bestGap = gap; best = { x: cx, y: cy }; }
+    }
+    return bestGap >= 0 ? best : null;
+  }
+
+  // Choose somewhere new to go: usually a patch of white space to hover in, and now and then
+  // a point beyond an edge, so it runs into the wall.
+  function pick(now, stayInside) {
+    if (leaving || mode !== "fly") return;
+    const pad = 70, spanX = Math.max(1, W - 2 * pad), spanY = Math.max(1, H - 2 * pad);
+    anchored = false;
+    if (!stayInside && charge >= LOW && Math.random() < 0.25) {
+      const side = Math.floor(Math.random() * 4);
+      tx = side === 0 ? -220 : side === 1 ? W + 220 : pad + Math.random() * spanX;
+      ty = side === 2 ? -220 : side === 3 ? H + 220 : pad + Math.random() * spanY;
+    } else {
+      const spot = freeSpot();
+      if (spot) {
+        anchored = true;
+        tx = spot.x; ty = spot.y;
+        tpx = spot.x + window.scrollX; tpy = spot.y + window.scrollY;
+      } else { tx = pad + Math.random() * spanX; ty = pad + Math.random() * spanY; }
+    }
+    lastPick = now;
+    nextPick = now + 3000 + Math.random() * 3500;
+  }
+
+  function startFlip(dir, turns) {
+    if (flipTurns) return;
+    flipDir = dir; flipTurns = turns; flipT = 0;
+  }
+
+  function bonk(px, py, speed, now) {
+    squash = 1;
+    startFlip(vx >= 0 ? 1 : -1, speed > 520 ? 2 : 1);
+    for (let i = 0; i < 5; i++) {
+      const s = document.createElement("span");
+      s.textContent = SPARK[(Math.random() * SPARK.length) | 0];
+      sparks.appendChild(s);
+      const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 130;
+      live.push({ s, x: px, y: py, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 50, t: 0 });
+    }
+    pick(now, true);
+  }
+
+  // Fly in from above the window, as if it had just left the art.
+  function enter() {
+    measure();
+    shown = true; entering = true; leaving = false;
+    x = Math.max(hw + 20, Math.min(W - hw - 20, W / 2 + (Math.random() - 0.5) * 160));
+    y = -hh - 30; vx = 0; vy = 260;
+    tilt = 0; flipTurns = 0; flipT = 0; squash = 0;
+    node.style.opacity = "1";
+    bat.hidden = false;
+    showBattery();
+    const now = performance.now();
+    pick(now, true);
+    nextTrick = 0;
+    last = now;
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(step);
+  }
+  // Head back up and out through the top.
+  function leave() {
+    if (mode !== "fly") { mode = "fly"; showDock(false); }
+    leaving = true; entering = false; anchored = false;
+    tx = x; ty = -300;
+  }
+  function park() {
+    shown = false; entering = false; leaving = false;
+    held = false; deadShown = false; node.classList.remove("dead", "held");
+    mode = "fly"; showDock(false);
+    cancelAnimationFrame(raf);
+    raf = 0;
+    node.style.opacity = "0";
+    bat.hidden = true;
+    while (live.length) live.pop().s.remove();
+  }
+  function update() {
+    if (reduce.matches) return;
+    const want = pastHero();
+    if (want && !shown) enter();
+    else if (want && leaving) { leaving = false; entering = y < hh + 4; pick(performance.now(), true); }
+    else if (!want && shown && !leaving && !held) leave();
+  }
+
+  function step(now) {
+    raf = requestAnimationFrame(step);
+    const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+    last = now;
+    const L = hw + 4, R = W - hw - 4, T = hh + 4, B = H - hh - 4;
+
+    // The dock: head for it when it is on screen, land, charge, and take off again when it scrolls away.
+    readDock();
+    // (A dead drone cannot fly there itself: it has to be carried.)
+    if (mode === "fly" && dockOk && !leaving && !entering && charge > DEAD) mode = "dock";
+    else if (mode !== "fly" && !dockOk) undock(now);
+    const down = grounded();
+
+    if (mode === "docked") {
+      x = dockX; y = dockY; vx = 0; vy = 0;
+      charge = Math.min(1, charge + dt / CHARGE_TIME);
+      showDock(true);
+    } else if (held) {                               // being carried: it goes where the pointer goes
+      x = Math.max(L, Math.min(R, ptrX + grabDX));
+      y = Math.max(T, Math.min(B, ptrY + grabDY));
+      vx = 0; vy = 0;
+      // holding it against the top or bottom edge scrolls the page, so it can be carried down to the dock
+      if (ptrY > H - 60) window.scrollBy(0, Math.ceil((ptrY - (H - 60)) * 0.3));
+      else if (ptrY < 60) window.scrollBy(0, -Math.ceil((60 - ptrY) * 0.3));
+      if (now - ptrT > 120) { ptrVX = 0; ptrVY = 0; }
+    } else if (down) {                               // dropped or out of power: it falls and sits on the bottom edge
+      vy += 700 * dt;
+      vx *= Math.max(0, 1 - 3 * dt);
+      x += vx * dt; y += vy * dt;
+      if (x < L) { x = L; vx = Math.abs(vx) * 0.4; } else if (x > R) { x = R; vx = -Math.abs(vx) * 0.4; }
+      if (y < T) { y = T; vy = Math.abs(vy) * 0.3; }
+      if (y > B) { y = B; if (vy > 160) { squash = 0.8; vy = -vy * 0.3; } else vy = 0; }
+    } else {
+      // Flying runs the battery down, and a more mouse-sensitive drone burns it faster:
+      // half speed with the slider off, normal at 5, double at 10.
+      if (mode === "fly") charge = Math.max(DEAD, charge - (dt / FLIGHT_TIME) * Math.pow(2, shy - 1));
+      if (mode === "dock") {                         // line up above the pad first, then come straight down
+        tx = dockX;
+        ty = Math.abs(x - dockX) < 14 ? dockY : dockY - 46;
+        if (Math.abs(x - dockX) < 2.5 && Math.abs(y - dockY) < 2.5 && Math.hypot(vx, vy) < 45) {
+          mode = "docked"; squash = 0.7; flipTurns = 0; flipT = 0;
+        }
+      } else if (anchored && !leaving) {             // the hover spot rides along with the page
+        tx = tpx - window.scrollX; ty = tpy - window.scrollY;
+        if ((ty < T + 6 || ty > B - 6) && now - lastPick > 250) pick(now, true);   // scrolled away: find a new one
+      }
+      if (now > nextPick) pick(now, false);
+      if (now > nextTrick) {                         // an unprompted flip now and then
+        if (nextTrick && !leaving && mode === "fly" && charge >= LOW) startFlip(Math.random() < 0.5 ? 1 : -1, Math.random() < 0.25 ? 2 : 1);
+        nextTrick = now + 6000 + Math.random() * 7000;
+      }
+
+      // A loose spring toward the target, so it overshoots and wobbles like something hovering.
+      // On approach to the dock the damping is firmer, so it settles instead of bouncing;
+      // on a low battery the pull is weaker, so it flies sluggishly.
+      const pull = mode === "fly" && charge < LOW ? 2.6 : 5, damp = mode === "dock" ? 4.2 : 2;
+      vx += ((tx - x) * pull - vx * damp) * dt;
+      vy += ((ty - y) * pull - vy * damp) * dt;
+      const sp = Math.hypot(vx, vy);
+      if (sp > 900) { vx *= 900 / sp; vy *= 900 / sp; }
+      x += vx * dt;
+      y += vy * dt + (mode === "fly" ? Math.sin(now / 380) * 0.25 : 0);
+    }
+    showBattery();
+    if (mode !== "docked") showDock(false);
+    if (down !== deadShown) { deadShown = down; node.classList.toggle("dead", down); }   // dead means it can be grabbed
+
+    // Walls: bounce back, and if it hit hard enough, bonk. The top is open while it flies in or out.
+    if (mode !== "docked" && !down) {
+      if (x < L) { const s = -vx; x = L; vx = Math.abs(vx) * 0.6 + 40; if (s > 90) bonk(0, y, s, now); }
+      else if (x > R) { const s = vx; x = R; vx = -Math.abs(vx) * 0.6 - 40; if (s > 90) bonk(W, y, s, now); }
+      if (leaving) {
+        if (y < -hh - 40) { park(); return; }
+      } else if (entering) {
+        if (y >= T) entering = false;
+      } else if (y < T) { const s = -vy; y = T; vy = Math.abs(vy) * 0.6 + 40; if (s > 90) bonk(x, 0, s, now); }
+      if (y > B) { const s = vy; y = B; vy = -Math.abs(vy) * 0.6 - 40; if (s > 90) bonk(x, H, s, now); }
+    }
+
+    // Bank into sideways motion; a flip is one or two full turns eased in and out. Out of power, it sits askew.
+    const want = held ? Math.max(-30, Math.min(30, ptrVX * 0.04)) : down ? 9 : Math.max(-26, Math.min(26, vx * 0.07));
+    tilt += (want - tilt) * Math.min(1, dt * 8);
+    let ang = tilt;
+    if (flipTurns) {
+      flipT += dt / (0.5 * flipTurns + 0.2);
+      if (flipT >= 1) { flipT = 0; flipTurns = 0; }
+      else {
+        const e = flipT < 0.5 ? 2 * flipT * flipT : 1 - Math.pow(-2 * flipT + 2, 2) / 2;
+        ang += flipDir * 360 * flipTurns * e;
+      }
+    }
+    squash *= Math.pow(0.002, dt);
+    node.style.transform =
+      "translate3d(" + (x - hw).toFixed(1) + "px," + (y - hh).toFixed(1) + "px,0) rotate(" + ang.toFixed(1) +
+      "deg) scale(" + (1 + 0.2 * squash).toFixed(3) + "," + (1 - 0.2 * squash).toFixed(3) + ")";
+
+    const still = mode === "docked" || down;     // props stop on the pad and when the battery is flat
+    const f = still ? 0 : Math.floor(now / (charge < LOW ? 140 : 70)) % PROP.length;
+    if (f !== propFrame) {
+      propFrame = f;
+      props[0].textContent = PROP[f];
+      props[1].textContent = PROP[still ? 0 : (f + 2) % PROP.length];
+    }
+
+    for (let i = live.length - 1; i >= 0; i--) {
+      const p = live[i];
+      p.t += dt;
+      if (p.t > 0.6) { p.s.remove(); live.splice(i, 1); continue; }
+      p.vy += 320 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.s.style.transform = "translate3d(" + p.x.toFixed(1) + "px," + p.y.toFixed(1) + "px,0)";
+      p.s.style.opacity = (1 - p.t / 0.6).toFixed(2);
+    }
+  }
+
+  function start() {
+    if (reduce.matches) { park(); node.hidden = true; tune.hidden = true; return; }   // no flying about for reduced motion
+    node.hidden = false; tune.hidden = false;
+    measure();
+    lastScroll = window.scrollY;
+    update();
+  }
+
+  // Scrolling slides the page past the drone: it is left behind for a moment, then chases the reader.
+  window.addEventListener("scroll", () => {
+    const sy = window.scrollY, d = Math.max(-H, Math.min(H, sy - lastScroll));
+    lastScroll = sy;
+    update();
+    // Docked, or sitting dead on the bottom edge, it stays put: scrolling must not throw it around.
+    if (!shown || leaving || mode === "docked" || grounded()) return;
+    y -= d * 0.55;
+    vy -= Math.max(-600, Math.min(600, d * 4));
+    if (Math.abs(d) > 60) startFlip(d > 0 ? 1 : -1, 1);
+  }, { passive: true });
+
+  // It shies away from the mouse. The slider sets from how far away it reacts, and how hard it is pushed.
+  window.addEventListener("pointermove", (ev) => {
+    if (!shown || leaving || shy <= 0 || mode !== "fly" || charge <= DEAD || ev.pointerType !== "mouse") return;
+    const dx = x - ev.clientX, dy = y - ev.clientY, d = Math.hypot(dx, dy);
+    if (d < 40 + 60 * shy && d > 0.5) { vx += (dx / d) * 60 * shy; vy += (dy / d) * 60 * shy; }
+  }, { passive: true });
+  sense.addEventListener("input", () => setShy(+sense.value, true));
+  (function restoreShy() {
+    let saved = null;
+    try { saved = localStorage.getItem("drone-mouse-sensitivity"); } catch (e) {}
+    setShy(saved === null || isNaN(+saved) ? 5 : +saved, false);
+  })();
+
+  // Picking up a dead drone: press on it, carry it, and let go over the dock to put it on charge.
+  node.addEventListener("pointerdown", (ev) => {
+    if (!grounded()) return;
+    held = true;
+    grabDX = x - ev.clientX; grabDY = y - ev.clientY;
+    ptrX = ev.clientX; ptrY = ev.clientY; ptrVX = 0; ptrVY = 0; ptrT = performance.now();
+    try { node.setPointerCapture(ev.pointerId); } catch (e) {}
+    node.classList.add("held");
+    ev.preventDefault();
+  });
+  node.addEventListener("pointermove", (ev) => {
+    if (!held) return;
+    const now = performance.now(), ms = Math.max(8, now - ptrT);
+    ptrVX = 0.6 * ptrVX + 0.4 * ((ev.clientX - ptrX) / ms) * 1000;
+    ptrVY = 0.6 * ptrVY + 0.4 * ((ev.clientY - ptrY) / ms) * 1000;
+    ptrX = ev.clientX; ptrY = ev.clientY; ptrT = now;
+  });
+  function drop(ev) {
+    if (!held) return;
+    held = false;
+    node.classList.remove("held");
+    try { node.releasePointerCapture(ev.pointerId); } catch (e) {}
+    readDock();
+    if (dockOk && Math.abs(x - dockX) < 48 && Math.abs(y - dockY) < 42) {     // let go over the pad: it is on charge
+      mode = "docked"; x = dockX; y = dockY; vx = 0; vy = 0; squash = 0.7;
+    } else {                                                                   // let go anywhere else: it falls
+      vx = Math.max(-700, Math.min(700, ptrVX));
+      vy = Math.max(-700, Math.min(700, ptrVY));
+    }
+  }
+  node.addEventListener("pointerup", drop);
+  node.addEventListener("pointercancel", drop);
+
+  bat.addEventListener("click", () => station.scrollIntoView({ behavior: "smooth", block: "center" }));
+  window.addEventListener("resize", () => { measure(); update(); if (shown) pick(performance.now(), true); });
+  window.addEventListener("hashchange", () => requestAnimationFrame(update));   // opening a post hides the art too
+  if (reduce.addEventListener) reduce.addEventListener("change", start);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
+})();
+</script>
+</body>
+</html>
