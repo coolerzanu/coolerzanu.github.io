@@ -187,18 +187,21 @@ footer .links { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; }
 }
 
 /* Hero row: name on the left, the ASCII camera (gallery button) on the right */
-.hero-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem 2rem; }
-.hero-row .intro { flex: 1 1 20rem; min-width: 0; }
+.hero-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 1.5rem 1rem; }
+.hero-row .name { white-space: nowrap; }          /* the name never breaks; on narrow screens the camera drops below instead */
+@media (max-width: 720px) { .hero-row { grid-template-columns: minmax(0, 1fr); justify-items: start; } .hero-row .name { white-space: normal; } }
 .gallery-btn {
   flex: none; display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
-  margin: 0; padding: 0.6rem 0.7rem; background: transparent; border: 0; cursor: pointer;
+  margin: 0; padding: 0; background: transparent; border: 0; cursor: pointer;
   color: var(--ink); border-radius: 2px;
 }
 .gallery-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .cam {
-  margin: 0; font: 600 12px/1.05 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  margin: 0; font: 600 8.5px/1.05 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;   /* sized to fit beside the name inside the 680px column */
   white-space: pre; color: var(--ink); transition: transform 0.15s, color 0.15s;
+  pointer-events: none;   /* the lens is redrawn every frame on hover; clicks must land on the button, not on characters that vanish mid-click */
 }
+.cam-label { pointer-events: none; }
 .cam .cl { color: var(--accent); }
 .cam .cm { color: #9A9282; }
 .cam .cf { color: var(--warn); }
@@ -262,11 +265,6 @@ body.locked { overflow: hidden; }
   .gallery-btn:hover .cam { transform: none; }
 }
 /* Wide screens: the camera hangs into the right margin so the name stays on one line */
-@media (min-width: 1060px) {
-  .hero-row { position: relative; }
-  .gallery-btn { position: absolute; right: -150px; top: 50%; transform: translateY(-50%); padding: 0.25rem; }
-  .cam { font-size: clamp(8.5px, 0.72vw, 11px); }      /* scales with the window so it never outgrows the name */
-}
 /* Phones: no camera drawing, just a plain bordered GALLERY button */
 @media (max-width: 600px) {
   .cam { display: none; }
