@@ -186,6 +186,125 @@ footer .links { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; }
   will-change: transform, opacity;
 }
 
+/* Hero row: name on the left, the ASCII camera (gallery button) on the right */
+.hero-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem 2rem; }
+.hero-row .intro { flex: 1 1 20rem; min-width: 0; }
+.gallery-btn {
+  flex: none; display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
+  margin: 0; padding: 0.6rem 0.7rem; background: transparent; border: 0; cursor: pointer;
+  color: var(--ink); border-radius: 2px;
+}
+.gallery-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.cam {
+  margin: 0; font: 600 12px/1.05 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre; color: var(--ink); transition: transform 0.15s, color 0.15s;
+}
+.cam .cl { color: var(--accent); }
+.cam .cm { color: #9A9282; }
+.cam .cf { color: var(--warn); }
+.cam-label { font: 700 var(--step--1)/1.4 var(--type); letter-spacing: 0.12em; color: var(--muted); white-space: pre; }
+.gallery-btn:hover .cam { transform: translateY(-2px) rotate(-3deg); }
+.gallery-btn:hover .cam-label { color: var(--accent); }
+.gallery-btn.snap .cam { animation: snap 0.35s; }
+@keyframes snap { 30% { transform: scale(0.92) rotate(2deg); } 60% { transform: scale(1.06) rotate(-2deg); } }
+
+/* Full-screen ASCII wipe drawn on a canvas between the page and the gallery */
+.wipe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 40; pointer-events: none; display: none; }
+.wipe.on { display: block; }
+
+/* Gallery overlay */
+.gallery {
+  position: fixed; inset: 0; z-index: 30; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--paper);
+}
+.gallery-inner {
+  max-width: 980px; margin-inline: auto; display: flex; flex-direction: column; gap: 1rem;
+  padding: clamp(1.5rem, 5vw, 3rem) max(16px, env(safe-area-inset-right, 0px)) 3rem max(16px, env(safe-area-inset-left, 0px));
+}
+.gallery-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.gallery-head h2 { margin: 0; font-size: var(--step-2); line-height: 1.1; letter-spacing: -0.03em; }
+.gallery-close {
+  font: 700 var(--step-0)/1.4 var(--type); color: var(--ink); background: transparent;
+  border: 1px solid var(--ink); border-radius: 2px; padding: 0.25rem 0.7rem; cursor: pointer;
+}
+.gallery-close:hover { background: var(--ink); color: var(--paper); }
+.gallery-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 1.5rem; margin-top: 0.5rem; }
+.shot { margin: 0; display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+.shot .frame { position: relative; display: block; overflow: hidden; border: 1px solid var(--rule); background: var(--rule); color: inherit; text-decoration: none; }
+.shot img { display: block; width: 100%; aspect-ratio: 5 / 7; object-fit: cover; transition: transform 0.35s, filter 0.35s; }
+a.frame:hover img, a.frame:focus-visible img { transform: scale(1.04); filter: contrast(1.05); }
+a.frame:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.shot .open {
+  position: absolute; left: 50%; bottom: 0.8rem; transform: translate(-50%, 0.6rem);
+  padding: 0.2rem 0.55rem; white-space: nowrap;
+  font: 700 var(--step--1)/1.4 var(--type); letter-spacing: 0.04em;
+  color: var(--paper); background: var(--ink); border-radius: 2px;
+  opacity: 0; transition: opacity 0.2s, transform 0.2s;
+}
+a.frame:hover .open, a.frame:focus-visible .open { opacity: 1; transform: translate(-50%, 0); }
+@media (hover: none) { .shot .open { opacity: 0.92; transform: translate(-50%, 0); } }   /* touch: always show the hint */
+.shot figcaption { display: flex; flex-direction: column; gap: 0.1rem; }
+.shot figcaption .t { color: var(--ink); font-weight: 700; }
+.shot figcaption a { color: inherit; text-decoration: none; }
+.shot figcaption a:hover { color: var(--accent); text-decoration: underline; }
+.shot .empty {
+  margin: 0; aspect-ratio: 5 / 7; display: grid; place-items: center; overflow: hidden;
+  border: 1px dashed var(--rule);
+  font: 600 12px/1.2 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace; white-space: pre; color: var(--muted);
+}
+.shot figcaption { font: 400 var(--step--1)/1.5 var(--type); color: var(--muted); }
+.gallery.in .shot { animation: develop 0.6s both; }
+@keyframes develop { from { opacity: 0; transform: translateY(10px); filter: contrast(0.4) brightness(1.4); } }
+body.locked { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .gallery.in .shot, .gallery-btn.snap .cam { animation: none; }
+  .gallery-btn:hover .cam { transform: none; }
+}
+/* Wide screens: the camera hangs into the right margin so the name stays on one line */
+@media (min-width: 1060px) {
+  .hero-row { position: relative; }
+  .gallery-btn { position: absolute; right: -150px; top: 50%; transform: translateY(-50%); padding: 0.25rem; }
+  .cam { font-size: clamp(8.5px, 0.72vw, 11px); }      /* scales with the window so it never outgrows the name */
+}
+@media (max-width: 480px) { .cam { font-size: 10px; } .hero-row { justify-content: flex-start; } }
+
+/* Philosophy: a two-button question with a typed reply and an edible cookie */
+.choices { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.choice {
+  font: 700 var(--step-0)/1.4 var(--type);
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--ink); border-radius: 2px;
+  padding: 0.3rem 1rem; cursor: pointer;
+}
+.choice:hover { background: var(--ink); color: var(--paper); }
+.choice:focus-visible, .cookie:focus-visible, .again:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.choice[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.choices.done .choice[aria-pressed="false"] { opacity: 0.35; text-decoration: line-through; }
+.reply { display: flex; flex-direction: column; gap: 1rem; min-height: 1.65em; }
+.typed::after { content: "▌"; color: var(--muted); animation: caret 0.9s steps(2, jump-none) infinite; }
+.typed.still::after { content: none; }
+@keyframes caret { from { opacity: 1; } to { opacity: 0; } }
+.cookie-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+.cookie {
+  margin: 0; padding: 0.4rem 0.6rem;
+  font: 600 14px/1.15 "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre; text-align: left;
+  color: #8A5A2B; background: transparent; border: 0; cursor: pointer;
+  transition: transform 0.12s;
+}
+.cookie:hover { transform: rotate(-4deg) scale(1.04); }
+.cookie.chomp { animation: chomp 0.22s; }
+@keyframes chomp { 50% { transform: scale(0.9) rotate(6deg); } }
+.cookie.gone { cursor: default; }
+.cookie.gone:hover { transform: none; }
+.closing { font-style: italic; }
+.again {
+  align-self: flex-start; padding: 0; border: 0; background: none; cursor: pointer;
+  font: 400 var(--step--1)/1.5 var(--type); color: var(--muted); text-decoration: underline; text-underline-offset: 0.18em;
+}
+@media (prefers-reduced-motion: reduce) { .typed::after, .cookie.chomp { animation: none; } .cookie { transition: none; } }
+
 @media (max-width: 480px) {
   .buddy, .station { font-size: 9.5px; }
   .battery { font-size: 10px; }
@@ -205,9 +324,15 @@ footer .links { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; }
         </div>
         <figcaption class="caption" id="caption">fig. 1 &nbsp; quadcopter in hover</figcaption>
       </figure>
-      <div class="intro">
-        <h1 class="name">Prakshab Adhikari</h1>
-        <p class="tagline">Electrical engineering at Columbia. Building drones and other cool shit.</p>
+      <div class="hero-row">
+        <div class="intro">
+          <h1 class="name">Prakshab Adhikari</h1>
+          <p class="tagline">Electrical engineering at Columbia. Building drones and other cool shit.</p>
+        </div>
+        <button type="button" class="gallery-btn" id="gallery-btn" aria-haspopup="dialog" aria-controls="gallery" aria-label="Open the photo gallery">
+<pre class="cam" id="cam" aria-hidden="true"></pre>
+<span class="cam-label" id="cam-label" aria-hidden="true">[ GALLERY ]</span>
+        </button>
       </div>
     </header>
 
@@ -216,7 +341,20 @@ footer .links { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; }
     <section class="section" id="about">
       <h2>About</h2>
       <p>I'm an electrical engineering major and computer science minor at Columbia. I want to design chips, and I want to push the commercial drone industry forward. Most of what I build sits where those two meet: power electronics, flight controllers, and the silicon underneath them.</p>
-      <p>Always looking for a chance to learn and grow, would love to work with anyone in the space</p>
+      <p>Always looking for a chance to learn and grow, would love to work with anyone in the space!</p>
+    </section>
+
+    <hr>
+
+    <section class="section" id="philosophy">
+      <h2>Philosophy</h2>
+      <p>Are you familiar with who invented the door knob?</p>
+      <div class="choices" id="knob-choices" role="group" aria-label="Your answer">
+        <button type="button" class="choice" data-answer="yes" aria-pressed="false">yes</button>
+        <button type="button" class="choice" data-answer="no" aria-pressed="false">no</button>
+      </div>
+      <div class="reply" id="knob-reply" aria-live="polite"></div>
+      <noscript><p class="closing">Exactly. Yet billions of people use it every day. I hope to build something just as meaningful.</p></noscript>
     </section>
 
     <hr>
@@ -255,6 +393,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; }
     <hr>
     <div class="links">
       <a href="#about">About</a><span class="dot">·</span>
+      <a href="#philosophy">Philosophy</a><span class="dot">·</span>
       <a href="#projects">Projects</a><span class="dot">·</span>
       <a href="#writing">Writing</a><span class="dot">·</span>
       <a href="#contact">Contact</a><span class="dot">·</span>
@@ -279,6 +418,18 @@ footer .links { display: flex; flex-wrap: wrap; gap: 0.15rem 0.55rem; }
   '-.[=].-'  
     /   \    </pre>
 <div class="sparks" id="sparks" aria-hidden="true"></div>
+
+<div class="gallery" id="gallery" role="dialog" aria-modal="true" aria-labelledby="gallery-title" hidden>
+  <div class="gallery-inner">
+    <div class="gallery-head">
+      <h2 id="gallery-title">Gallery</h2>
+      <button type="button" class="gallery-close" id="gallery-close" aria-label="Close the gallery">[ x ]</button>
+    </div>
+    <p class="label">roll 01 &middot; builds, boards and things that flew (or didn't) &middot; click a picture to see it on GitHub</p>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </div>
+</div>
+<canvas class="wipe" id="wipe" aria-hidden="true"></canvas>
 <button type="button" class="battery" id="battery" hidden aria-label="Drone battery">[##########] 100%</button>
 
 <script>
@@ -316,8 +467,8 @@ const POSTS = [
     title: "Notes on building an ESC from scratch",
     meta: "Draft · date to add",
     body: [
-      "This is a placeholder post. Replace it with your own writing.",
-      "Posts use the same column, type and spacing as the home page, so a long essay reads the same way the front page does. Links are underlined, and part numbers or signal names can go in monospace."
+      "This is my journey building a 4in1 ESC",
+      "Before I get into the actual build"
     ]
   },
   {
@@ -1263,6 +1414,322 @@ route();
   window.addEventListener("hashchange", () => requestAnimationFrame(update));   // opening a post hides the art too
   if (reduce.addEventListener) reduce.addEventListener("change", start);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(start); else start();
+})();
+
+/* ───────────── Gallery: add photos here ─────────────
+   Each entry: { src, title, caption, link }. Images live in the gallery/ folder next to this file.
+   link is optional; with one, clicking the picture opens it in a new tab.
+   Entries with no src show an empty ASCII frame as a placeholder. */
+const GALLERY = [
+  { src: "gallery/lilac-v1.webp",         title: "Lilac-V1",                     caption: "60-key ergo split keyboard, 3 layers, dual knobs",   link: "https://github.com/coolerzanu/Lilac-V1" },
+  { src: "gallery/logical-redstone.webp", title: "Logical Redstone",             caption: "Minecraft-style logic gates that talk by laser",     link: "https://github.com/TXWD1234/LogicalRedstone" },
+  { src: "gallery/tungsten-cube.webp",    title: "The Cube",                     caption: "tungsten? it's just a cube. (on a chain)",           link: "https://github.com/coolerzanu/Tungsten-Cube-Chain" },
+  { src: "gallery/fpv-drone.webp",        title: "5\" Analog FPV Drone",         caption: "built and tuned from parts",                         link: "https://github.com/coolerzanu/FPV-Drone-5-Analog" },
+  { src: "gallery/paintball-turret.webp", title: "Autonomous Paintball Turret",  caption: "stepper-driven pan/tilt on an aluminum frame",       link: "https://github.com/coolerzanu/Autonomous-Paintball-Turret" }
+];
+
+(function () {
+  const btn = document.getElementById("gallery-btn");
+  const cam = document.getElementById("cam");
+  const label = document.getElementById("cam-label");
+  const gal = document.getElementById("gallery");
+  const grid = document.getElementById("gallery-grid");
+  const closeBtn = document.getElementById("gallery-close");
+  const wipe = document.getElementById("wipe");
+  if (!btn || !cam || !gal || !wipe) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const ctx = wipe.getContext("2d");
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  /* The camera is drawn on a character grid: a body, a prism hump, and a round lens built
+     from rings. turn = how far the focus ring has rotated, iris = how open the aperture is. */
+  function drawCam(turn, iris, flash) {
+    const W = 36, H = 15, g = [];
+    for (let y = 0; y < H; y++) g.push(Array.from({ length: W }, () => [" ", ""]));
+    const set = (x, y, ch, c = "") => { if (y >= 0 && y < H && x >= 0 && x < W) g[y][x] = [ch, c]; };
+    const by0 = 3, by1 = 14, bx0 = 0, bx1 = 35;
+    for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) {      // body
+      let ch = " ", c = "";
+      if (x >= 1 && x <= 4 && y > by0 && y < by1) { ch = ":"; c = "cm"; }    // grip texture
+      if (x === 5 && y > by0 && y < by1) ch = "|";
+      if (y === by0 || y === by1) ch = "_";
+      if (x === bx0 || x === bx1) ch = y === by0 ? " " : "|";
+      set(x, y, ch, c);
+    }
+    const hs = 11, he = 24;                                                    // prism hump
+    for (let x = hs + 1; x < he; x++) set(x, 0, "_");
+    set(hs, 1, "/"); set(he, 1, "\\"); set(hs - 1, 2, "/"); set(he + 1, 2, "\\"); set(hs - 2, 3, "/"); set(he + 2, 3, "\\");
+    set(15, 1, "["); for (let x = 16; x <= 19; x++) set(x, 1, flash ? "*" : "=", flash ? "cf" : "cm"); set(20, 1, "]");
+    set(28, 2, "_"); set(29, 2, "_"); set(27, 3, "["); set(28, 3, flash ? "#" : "_"); set(29, 3, flash ? "#" : "_"); set(30, 3, "]");   // shutter
+    set(3, 2, "_"); set(2, 3, "("); set(3, 3, "_"); set(4, 3, ")");            // mode dial
+    set(31, 5, "("); set(32, 5, flash ? "*" : "o", flash ? "cf" : ""); set(33, 5, ")");   // flash window
+    const cx = 19.5, cy = 8.6, RY = 5.0, RX = RY * 1.95;                       // lens
+    for (let y = by0 + 1; y < by1; y++) for (let x = 6; x < bx1; x++) {
+      const dx = (x - cx) / RX, dy = (y - cy) / RY, rr = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      if (rr > 1) continue;
+      let ch, c = "";
+      if (rr > 0.9) ch = "@";                                                         // barrel rim
+      else if (rr > 0.77) ch = "#:"[(((a + turn) / (Math.PI / 9)) % 2 + 4 | 0) % 2];  // focus ring
+      else if (rr > 0.68) { ch = "o"; c = "cm"; }
+      else if (rr < iris) { ch = rr < iris * 0.55 ? "@" : "O"; c = "cl"; }            // aperture
+      else { ch = rr > 0.55 ? ":" : "."; c = "cl"; }                                  // glass
+      if (rr < 0.6 && rr > 0.28 && dx < -0.1 && dy < -0.25) { ch = "'"; c = ""; }     // glint
+      set(x, y, ch, c);
+    }
+    cam.innerHTML = g.map(r => r.map(([ch, c]) => {
+      const e = ch === "<" ? "&lt;" : ch === "&" ? "&amp;" : ch;
+      return c ? `<span class="${c}">${e}</span>` : e;
+    }).join("")).join("\n");
+  }
+  const IRIS = 0.4;
+  drawCam(0, IRIS, false);
+
+  // Hovering focuses the lens: the focus ring turns and the aperture breathes
+  let spin = 0, turn = 0, t0 = 0;
+  function startSpin() {
+    if (spin || reduce.matches) return;
+    t0 = performance.now();
+    (function step(now) {
+      const s = (now - t0) / 1000;
+      turn = s * 2.2;
+      drawCam(turn, IRIS - 0.12 * Math.sin(s * 4), false);
+      spin = requestAnimationFrame(step);
+    })(t0);
+  }
+  function stopSpin() { cancelAnimationFrame(spin); spin = 0; drawCam(turn, IRIS, false); }
+  btn.addEventListener("pointerenter", startSpin);
+  btn.addEventListener("pointerleave", stopSpin);
+  btn.addEventListener("focus", startSpin);
+  btn.addEventListener("blur", stopSpin);
+
+  // The label decodes from noise back to its text
+  const NOISE = "!<>-_\\/[]{}=+*^?#%@01";
+  function scramble(el, text, ms) {
+    if (reduce.matches) { el.textContent = text; return; }
+    const t0 = performance.now();
+    (function step(now) {
+      const p = Math.min(1, (now - t0) / ms);
+      el.textContent = text.split("").map((ch, i) =>
+        ch === " " || i / text.length < p ? ch : NOISE[(Math.random() * NOISE.length) | 0]).join("");
+      if (p < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+
+  /* Gallery contents */
+  const EMPTY = "+-----------------+\n|                 |\n|    no photo     |\n|    yet  :)      |\n|                 |\n+-----------------+";
+  grid.innerHTML = GALLERY.map((g, i) => {
+    const pic = g.src
+      ? `<img src="${esc(g.src)}" alt="${esc(g.title || g.caption || "")}" loading="lazy" decoding="async">`
+      : `<pre class="empty" aria-hidden="true">${EMPTY}</pre>`;
+    const frame = g.link
+      ? `<a class="frame" href="${esc(g.link)}" target="_blank" rel="noopener" aria-label="${esc(g.title || "Project")} on GitHub (opens in a new tab)">${pic}<span class="open" aria-hidden="true">[ open on github ↗ ]</span></a>`
+      : `<div class="frame">${pic}</div>`;
+    return `
+    <figure class="shot" style="animation-delay:${i * 70}ms">
+      ${frame}
+      <figcaption>
+        <span class="t">fig. ${String(i + 1).padStart(2, "0")} &nbsp; ${g.link ? `<a href="${esc(g.link)}" target="_blank" rel="noopener" tabindex="-1">${esc(g.title || "")}</a>` : esc(g.title || "")}</span>
+        <span>${esc(g.caption || "")}</span>
+      </figcaption>
+    </figure>`;
+  }).join("");
+
+  /* ASCII wipe: characters sweep across the screen to cover it, then dissolve away */
+  const CHARS = " .:-=+*#%@01{}[]<>/\\|";
+  let cols = 0, rows = 0, cw = 0, chh = 0, seed = [];
+  function sizeWipe() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = window.innerWidth, h = window.innerHeight;
+    wipe.width = w * dpr; wipe.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const fs = w < 480 ? 12 : 14;
+    ctx.font = `600 ${fs}px "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace`;
+    ctx.textBaseline = "top";
+    cw = Math.ceil(ctx.measureText("M").width); chh = Math.ceil(fs * 1.15);
+    cols = Math.ceil(w / cw) + 1; rows = Math.ceil(h / chh) + 1;
+    seed = Array.from({ length: cols * rows }, () => Math.random());
+  }
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  // cover: 0 → 1 fills the screen along a diagonal from the button; dissolve: 0 → 1 clears it randomly
+  function frame(phase, p, ox, oy) {
+    const paper = css("--paper"), ink = css("--ink"), acc = css("--accent");
+    ctx.clearRect(0, 0, wipe.width, wipe.height);
+    const maxD = Math.hypot(Math.max(ox, cols - ox), Math.max(oy, rows * 2 - oy));
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const k = r * cols + c, s = seed[k];
+      let on, edge;
+      if (phase === "cover") {
+        const d = Math.hypot(c - ox, (r - oy) * 2) / maxD + s * 0.12;   // rows are taller, so stretch them
+        on = d < p * 1.12; edge = on && d > p * 1.12 - 0.08;
+      } else {
+        on = s > p; edge = on && s < p + 0.12;
+      }
+      if (!on) continue;
+      const x = c * cw, y = r * chh;
+      ctx.fillStyle = paper; ctx.fillRect(x, y, cw, chh);
+      ctx.fillStyle = edge ? acc : (s > 0.85 ? acc : ink);
+      const ch = edge ? CHARS[(Math.random() * CHARS.length) | 0] : CHARS[1 + ((s * 9 + p * 3) * 7 | 0) % (CHARS.length - 1)];
+      ctx.fillText(ch, x, y);
+    }
+  }
+  function run(phase, ms, ox, oy) {
+    return new Promise(res => {
+      const t0 = performance.now();
+      (function step(now) {
+        const p = Math.min(1, (now - t0) / ms);
+        frame(phase, 1 - (1 - p) * (1 - p), ox, oy);     // ease out
+        if (p < 1) requestAnimationFrame(step); else res();
+      })(t0);
+    });
+  }
+
+  let busy = false;
+  async function transition(origin, swap) {
+    if (reduce.matches) { swap(); return; }
+    busy = true;
+    sizeWipe();
+    const ox = origin ? origin.x / cw : cols / 2, oy = origin ? origin.y / chh : rows / 2;
+    wipe.classList.add("on");
+    await run("cover", 480, ox, oy);
+    swap();
+    await new Promise(r => setTimeout(r, 90));
+    await run("dissolve", 560, ox, oy);
+    wipe.classList.remove("on");
+    ctx.clearRect(0, 0, wipe.width, wipe.height);
+    busy = false;
+  }
+
+  function open() {
+    if (busy || !gal.hidden) return;
+    const r = cam.getBoundingClientRect();
+    // shutter: flash the bulb, close the lens, decode the label
+    stopSpin(); drawCam(turn, 0, true);                       // aperture snaps shut, flash fires
+    btn.classList.remove("snap"); void btn.offsetWidth; btn.classList.add("snap");
+    scramble(label, "[ GALLERY ]", 450);
+    setTimeout(() => drawCam(turn, 0.7, false), 160);         // blown-open after the flash
+    setTimeout(() => drawCam(turn, IRIS, false), 420);
+    setTimeout(() => transition({ x: r.left + r.width / 2, y: r.top + r.height / 2 }, () => {
+      gal.hidden = false; gal.scrollTop = 0;
+      gal.classList.remove("in"); void gal.offsetWidth; gal.classList.add("in");
+      document.body.classList.add("locked");
+      closeBtn.focus({ preventScroll: true });
+    }), reduce.matches ? 0 : 180);
+  }
+  function close() {
+    if (busy || gal.hidden) return;
+    transition(null, () => {
+      gal.hidden = true; gal.classList.remove("in");
+      document.body.classList.remove("locked");
+      btn.focus({ preventScroll: true });
+    });
+  }
+
+  btn.addEventListener("click", open);
+  closeBtn.addEventListener("click", close);
+  document.addEventListener("keydown", e => {
+    if (gal.hidden) return;
+    if (e.key === "Escape") close();
+    if (e.key === "Tab") {                                   // keep focus inside the dialog
+      const f = gal.querySelectorAll("button, a.frame");
+      const first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+})();
+
+/* ───────────── Philosophy: the door knob question ───────────── */
+(function () {
+  const group = document.getElementById("knob-choices");
+  const reply = document.getElementById("knob-reply");
+  if (!group || !reply) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const CLOSING = "Exactly. Yet billions of people use it every day. I hope to build something just as meaningful.";
+
+  // The cookie, one frame per bite; the last frame is crumbs
+  const COOKIE = [
+    "   .-\"\"\"\"-.  \n  / o  .   \\ \n | .   o  . |\n |  o   .  o|\n  \\ .  o   / \n   '-....-'  ",
+    "   .-\"\"-.    \n  / o  . \\_  \n | .   o   ) \n |  o   .  o|\n  \\ .  o   / \n   '-....-'  ",
+    "   .-\"\"-.    \n  / o  . )   \n | .   o(    \n |  o   .\\   \n  \\ .  o  )  \n   '-..-'    ",
+    "   .-.       \n  / o )      \n | . (       \n  \\ o \\      \n   '-'       \n             ",
+    "             \n      .  ,   \n   ,    .    \n     '   . , \n   .  ,      \n             "
+  ];
+  const BITE_NOTES = ["click to take a bite", "*nom*", "*nom nom*", "last bite...", "gone. just crumbs now."];
+  let typingId = 0;
+
+  // Types text into an element one character at a time, then resolves
+  function type(el, text, speed) {
+    const id = typingId;
+    return new Promise(resolve => {
+      if (reduce.matches) { el.textContent = text; el.classList.add("still"); return resolve(); }
+      el.classList.add("typed");
+      let i = 0;
+      (function step() {
+        if (id !== typingId) return;                              // the visitor reset; stop typing
+        el.textContent = text.slice(0, ++i);
+        if (i < text.length) setTimeout(step, speed + (/[.,?!]/.test(text[i - 1]) ? 220 : 0));
+        else { el.classList.add("still"); resolve(); }
+      })();
+    });
+  }
+  function line(cls) { const p = document.createElement("p"); if (cls) p.className = cls; reply.appendChild(p); return p; }
+  function againButton() {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "again"; b.textContent = "↺ ask me again";
+    b.addEventListener("click", reset);
+    reply.appendChild(b);
+  }
+
+  async function answerNo() {
+    await type(line("closing"), CLOSING, 32);
+    againButton();
+  }
+
+  async function answerYes() {
+    await type(line(), "Good job. Do you want a cookie?", 38);
+    const id = typingId;
+    const wrap = document.createElement("div"); wrap.className = "cookie-wrap";
+    const cookie = document.createElement("button");
+    cookie.type = "button"; cookie.className = "cookie";
+    cookie.setAttribute("aria-label", "A cookie. Click to take a bite.");
+    cookie.textContent = COOKIE[0];
+    const note = document.createElement("span"); note.className = "label"; note.textContent = BITE_NOTES[0];
+    wrap.append(cookie, note); reply.appendChild(wrap);
+
+    let bites = 0;
+    cookie.addEventListener("click", async () => {
+      if (bites >= COOKIE.length - 1) return;
+      bites++;
+      cookie.textContent = COOKIE[bites];
+      note.textContent = BITE_NOTES[bites];
+      cookie.classList.remove("chomp"); void cookie.offsetWidth; cookie.classList.add("chomp");
+      if (bites === COOKIE.length - 1) {
+        cookie.classList.add("gone"); cookie.disabled = true;
+        cookie.setAttribute("aria-label", "Cookie crumbs");
+        await new Promise(r => setTimeout(r, reduce.matches ? 0 : 700));
+        if (id !== typingId) return;
+        againButton();
+      }
+    });
+  }
+
+  function reset() {
+    typingId++;
+    reply.textContent = "";
+    group.classList.remove("done");
+    group.querySelectorAll(".choice").forEach(b => { b.disabled = false; b.setAttribute("aria-pressed", "false"); });
+    group.querySelector(".choice").focus();
+  }
+
+  group.addEventListener("click", ev => {
+    const btn = ev.target.closest(".choice");
+    if (!btn || group.classList.contains("done")) return;
+    typingId++;
+    group.classList.add("done");
+    group.querySelectorAll(".choice").forEach(b => { b.disabled = true; b.setAttribute("aria-pressed", String(b === btn)); });
+    if (btn.dataset.answer === "yes") answerYes(); else answerNo();
+  });
 })();
 </script>
 </body>
