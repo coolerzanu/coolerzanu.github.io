@@ -267,7 +267,17 @@ body.locked { overflow: hidden; }
   .gallery-btn { position: absolute; right: -150px; top: 50%; transform: translateY(-50%); padding: 0.25rem; }
   .cam { font-size: clamp(8.5px, 0.72vw, 11px); }      /* scales with the window so it never outgrows the name */
 }
-@media (max-width: 480px) { .cam { font-size: 10px; } .hero-row { justify-content: flex-start; } }
+/* Phones: no camera drawing, just a plain bordered GALLERY button */
+@media (max-width: 600px) {
+  .cam { display: none; }
+  .gallery-btn { padding: 0; }
+  .cam-label {
+    color: var(--ink); border: 1px solid var(--ink); border-radius: 2px;
+    padding: 0.35rem 0.9rem; letter-spacing: 0.08em;
+  }
+  .gallery-btn:active .cam-label { background: var(--ink); color: var(--paper); }
+}
+@media (max-width: 480px) { .hero-row { justify-content: flex-start; } }
 
 /* Philosophy: a two-button question with a typed reply and an edible cookie */
 .choices { display: flex; flex-wrap: wrap; gap: 0.75rem; }
@@ -1602,7 +1612,7 @@ const GALLERY = [
 
   function open() {
     if (busy || !gal.hidden) return;
-    const r = cam.getBoundingClientRect();
+    const r = (cam.offsetParent ? cam : btn).getBoundingClientRect();   // the camera is hidden on phones
     // shutter: flash the bulb, close the lens, decode the label
     stopSpin(); drawCam(turn, 0, true);                       // aperture snaps shut, flash fires
     btn.classList.remove("snap"); void btn.offsetWidth; btn.classList.add("snap");
