@@ -327,8 +327,8 @@
   }
   body.rift-jolt { animation: rift-jolt .3s; }
   @keyframes rift-jolt {
-    20% { transform: translate(3px, -2px); } 45% { transform: translate(-4px, 2px); }
-    70% { transform: translate(2px, 1px); }
+    20% { transform: translate(2px, -1px); } 45% { transform: translate(-2px, 1px); }
+    70% { transform: translate(1px, 1px); }
   }
   #rift-break { position: fixed; inset: 0; z-index: 1000; background: transparent; transition: background 1s ease; }
   #rift-break.dark { background: #000; }
@@ -360,17 +360,17 @@
   const quiet = p => { if (p && p.catch) p.catch(() => {}); };
 
   /* ---- a branching crack, grown from one point with a seeded random walk ---- */
-  function crack(seed, ox, oy, branches, reach, step) {
+  function crack(seed, ox, oy, branches, reach, step, maxDepth = 2, jitter = .8, fork = .26) {
     const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const segs = [];
     function grow(x, y, ang, len, dist, depth, bi) {
       const n = Math.max(2, Math.round(len / step));
       for (let i = 0; i < n; i++) {
-        ang += (rand() - .5) * .8;
+        ang += (rand() - .5) * jitter + (rand() < .12 ? (rand() - .5) * 1.1 : 0);   // mostly straight, with sharp kinks
         const l = step * (.55 + rand() * .9), nx = x + Math.cos(ang) * l, ny = y + Math.sin(ang) * l;
         segs.push({ bi, x1: x, y1: y, x2: nx, y2: ny, d: dist, len: l, w: Math.max(.55, 2.4 - depth * .7 - dist / reach * 1.4) });
         x = nx; y = ny; dist += l;
-        if (depth < 2 && rand() < .26) grow(x, y, ang + (rand() < .5 ? -1 : 1) * (.45 + rand() * .7), len * (.3 + rand() * .3), dist, depth + 1, bi);
+        if (depth < maxDepth && rand() < fork) grow(x, y, ang + (rand() < .5 ? -1 : 1) * (.45 + rand() * .7), len * (.3 + rand() * .3), dist, depth + 1, bi);
       }
     }
     for (let b = 0; b < branches; b++) {
@@ -397,7 +397,10 @@
   blur.id = "rift-blur"; blur.innerHTML = '<feGaussianBlur stdDeviation="2.4"/>';
   svg.appendChild(blur);
   const segs = crack(7, 292, 28, 4, 210, 15);
-  const glows = segs.map(s => { const p = line(s, "g", 2.5); p.setAttribute("filter", "url(#rift-blur)"); svg.appendChild(p); return p; });
+  const glowLayer = document.createElementNS(SVGNS, "g");
+  glowLayer.setAttribute("filter", "url(#rift-blur)");
+  svg.appendChild(glowLayer);
+  const glows = segs.map(s => { const p = line(s, "g", 2.5); glowLayer.appendChild(p); return p; });
   const lines = segs.map(s => { const p = line(s, "c", 0); svg.appendChild(p); return p; });
   rift.appendChild(svg);
 
@@ -439,22 +442,26 @@
   /* ---- falling ascii shards ---- */
   function shards(n, x0, y0, spread) {
     if (reduce) return;
-    const CH = "/\\|_-.,'`;:";
-    for (let i = 0; i < n; i++) {
+    const CH = "/\\|_-.,'`;:", list = [];
+    for (let i = 0; i < Math.min(n, 18); i++) {
       const el = document.createElement("span");
       el.className = "rift-shard";
       el.textContent = CH[(Math.random() * CH.length) | 0];
       document.body.appendChild(el);
-      let x = x0 - Math.random() * spread, y = y0 + Math.random() * spread * .6;
-      let vx = (Math.random() - .7) * 2.2, vy = -Math.random() * 2.5, r = 0, vr = (Math.random() - .5) * 18, a = 1;
-      const tick = () => {
-        vy += .32; x += vx; y += vy; r += vr; a -= .014;
-        el.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
-        el.style.opacity = a;
-        if (a > 0 && y < innerHeight + 20) requestAnimationFrame(tick); else el.remove();
-      };
-      requestAnimationFrame(tick);
+      list.push({ el, x: x0 - Math.random() * spread, y: y0 + Math.random() * spread * .5,
+        vx: (Math.random() - .7) * 2, vy: -Math.random() * 2, r: 0, vr: (Math.random() - .5) * 14, a: 1 });
     }
+    (function tick() {
+      let alive = 0;
+      for (const p of list) {
+        if (p.a <= 0) continue;
+        p.vy += .3; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.a -= .02;
+        if (p.a <= 0 || p.y > innerHeight + 20) { p.a = 0; p.el.remove(); continue; }
+        p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.r}deg)`;
+        p.el.style.opacity = p.a; alive++;
+      }
+      if (alive) requestAnimationFrame(tick);
+    })();
   }
   function jolt() {
     document.body.classList.remove("rift-jolt"); void document.body.offsetWidth;
@@ -493,42 +500,43 @@
     overlay.id = "rift-break";
     overlay.setAttribute("data-fs-host", "");
     const W = innerWidth, H = innerHeight, box = rift.getBoundingClientRect();
+    const ox = box.right - 28, oy = box.top + 28, R = Math.hypot(W, H);
+    const huge = crack(11, ox, oy, 6, R * .9, 32, 1, .3, .07);
+    const d = huge.map(q => `M${q.x1.toFixed(0)} ${q.y1.toFixed(0)}L${q.x2.toFixed(0)} ${q.y2.toFixed(0)}`).join("");
     const big = document.createElementNS(SVGNS, "svg");
     big.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    const bf = document.createElementNS(SVGNS, "filter");
-    bf.id = "rift-blur-big"; bf.innerHTML = '<feGaussianBlur stdDeviation="3"/>';
-    big.appendChild(bf);
-    const huge = crack(11, box.right - 28, box.top + 28, 8, Math.hypot(W, H) * 1.05, 26);
-    const paths = [];
-    huge.forEach(s => {
-      const gl = line(s, "", 4); gl.setAttribute("filter", "url(#rift-blur-big)");
-      gl.style.stroke = "var(--accent)"; gl.style.fill = "none"; gl.style.opacity = .9;
-      const ln = line(s, "", .6); ln.style.stroke = "var(--fg)"; ln.style.fill = "none";
-      [gl, ln].forEach(p => {
-        p.style.strokeLinecap = "round";
-        p.style.transition = reduce ? "none" : `stroke-dashoffset .12s linear ${(s.d / 2600).toFixed(3)}s`;
-        big.appendChild(p); paths.push(p);
-      });
-    });
+    big.innerHTML =
+      `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" opacity=".22"/>` +
+      `<path d="${d}" fill="none" stroke="var(--fg)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`;
     const flash = document.createElement("div"); flash.className = "flash";
-    const frame = document.createElement("iframe");
-    frame.src = TARGET; frame.title = "The ASCII Archive";
-    frame.setAttribute("allow", "autoplay; fullscreen");
-    overlay.append(frame, big, flash);
+    overlay.append(big, flash);
     document.body.appendChild(overlay);
 
-    requestAnimationFrame(() => requestAnimationFrame(() => paths.forEach(p => p.style.strokeDashoffset = 0)));
-    if (!reduce) flash.animate([{ opacity: 0 }, { opacity: .35, offset: .15 }, { opacity: 0 }], { duration: 700, easing: "ease-out" });
-    shards(40, box.right - 30, box.top + 30, 220);
+    if (!reduce) {
+      big.animate([{ clipPath: `circle(0px at ${ox}px ${oy}px)` }, { clipPath: `circle(${R}px at ${ox}px ${oy}px)` }],
+        { duration: 650, easing: "cubic-bezier(.3, .6, .3, 1)", fill: "forwards" });
+      flash.animate([{ opacity: 0 }, { opacity: .18, offset: .2 }, { opacity: 0 }], { duration: 600, easing: "ease-out" });
+    }
+    shards(14, ox, oy, 120);
 
     try { history.pushState({ rift: true }, "", TARGET); } catch (e) {}
     document.title = "The ASCII Archive";
-    setTimeout(() => overlay && overlay.classList.add("dark"), reduce ? 0 : 750);
+    setTimeout(() => overlay && overlay.classList.add("dark"), reduce ? 0 : 650);
     setTimeout(() => {
       if (!overlay) return;
-      frame.classList.add("in"); big.style.opacity = 0;
-      try { frame.focus(); } catch (e) {}
-    }, reduce ? 200 : 1500);
+      const frame = document.createElement("iframe");
+      frame.src = TARGET; frame.title = "The ASCII Archive";
+      frame.setAttribute("allow", "autoplay; fullscreen");
+      let shown = false;
+      const show = () => {
+        if (shown || !overlay) return; shown = true;
+        frame.classList.add("in"); big.style.opacity = 0;
+        try { frame.focus(); } catch (e) {}
+      };
+      frame.addEventListener("load", () => setTimeout(show, 250));
+      setTimeout(show, 3000);
+      overlay.insertBefore(frame, big);
+    }, reduce ? 100 : 1500);
   }
 
   // the back button closes the archive and returns to Prak.fun
