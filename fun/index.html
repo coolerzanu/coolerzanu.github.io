@@ -300,176 +300,158 @@
      ============================================================ -->
 <style>
   #rift {
-    position: absolute; top: 0; right: 0; width: 96px; height: 96px;
-    background: none; border: 0; padding: 0; margin: 0; cursor: pointer; z-index: 50;
-    -webkit-tap-highlight-color: transparent;
+    position: absolute; top: 0; right: 0; z-index: 50;
+    background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+    color: inherit; -webkit-tap-highlight-color: transparent;
   }
-  #rift:focus-visible { outline: 1px dashed var(--accent); outline-offset: -8px; }
-  #rift svg { position: absolute; top: 0; right: 0; width: 320px; height: 320px; overflow: visible; pointer-events: none; }
-  #rift .c {
-    fill: none; stroke: var(--fg); stroke-linecap: round; stroke-linejoin: round; opacity: .5;
-    transition: stroke-dashoffset .5s cubic-bezier(.2, .8, .2, 1), opacity .3s;
+  #rift:focus-visible { outline: 1px dashed var(--accent); outline-offset: -4px; }
+  #rift pre {
+    margin: 0; padding: 8px 10px 0 0; pointer-events: none; text-align: left;
+    font: 700 14px/1 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    color: var(--dim); white-space: pre;
   }
-  #rift .g {
-    fill: none; stroke: var(--accent); stroke-linecap: round; opacity: 0;
-    transition: stroke-dashoffset .5s cubic-bezier(.2, .8, .2, 1), opacity .8s;
-  }
-  #rift:hover .c, #rift:focus-visible .c { opacity: .85; }
+  #rift pre .k { color: var(--fg); opacity: .7; transition: opacity .3s; }
+  #rift pre .l { color: var(--accent); }
+  #rift:hover pre .k, #rift:focus-visible pre .k { opacity: 1; }
   #rift-whisper {
-    position: absolute; top: 18px; right: 108px; z-index: 50;
+    position: absolute; top: 12px; z-index: 50;
     font-size: 12px; color: var(--dim); white-space: nowrap; pointer-events: none;
     opacity: 0; transition: opacity .6s;
   }
   #rift-whisper.show { opacity: 1; }
-  .rift-shard {
-    position: fixed; z-index: 1001; pointer-events: none; left: 0; top: 0;
-    color: var(--fg); font-size: 13px; font-weight: 700; will-change: transform, opacity;
-  }
-  body.rift-jolt { animation: rift-jolt .3s; }
+  body.rift-jolt { animation: rift-jolt .25s; }
   @keyframes rift-jolt {
-    20% { transform: translate(2px, -1px); } 45% { transform: translate(-2px, 1px); }
-    70% { transform: translate(1px, 1px); }
+    25% { transform: translate(2px, -1px); } 50% { transform: translate(-2px, 1px); } 75% { transform: translate(1px, 0); }
   }
-  #rift-break { position: fixed; inset: 0; z-index: 1000; background: transparent; transition: background 1s ease; }
+  #rift-break { position: fixed; inset: 0; z-index: 1000; background: transparent; transition: background .4s; }
   #rift-break.dark { background: #000; }
-  #rift-break svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity 1.2s ease; }
-  #rift-break .flash { position: absolute; inset: 0; background: var(--accent); opacity: 0; pointer-events: none; }
+  #rift-break canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   #rift-break iframe {
     position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
-    background: #000; opacity: 0; transition: opacity 1.4s ease;
+    background: #000; opacity: 0; transition: opacity 1.2s ease;
   }
   #rift-break iframe.in { opacity: 1; }
-  @media (prefers-reduced-motion: reduce) {
-    #rift .c, #rift .g { transition: none; }
-    body.rift-jolt { animation: none; }
+  #rift-break .msg {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font: 14px/1.7 "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    color: #7cfc9a; text-align: center; white-space: pre; opacity: 0; transition: opacity .6s;
   }
+  #rift-break .msg a { color: #e8e6df; }
+  @media (prefers-reduced-motion: reduce) { body.rift-jolt { animation: none; } }
 </style>
-<button id="rift" aria-label="There is a crack in the corner. Click it a few times."></button>
+<button id="rift" aria-label="There is a crack in the corner. Click it a few times."><pre aria-hidden="true"></pre></button>
 <div id="rift-whisper" aria-live="polite"></div>
 <script>
 (() => {
   const TARGET = "archive/";                       // where the crack leads
+  // resolve once, now: after the address bar changes, "archive/" would point somewhere else
+  const TARGET_URL = new URL(TARGET, location.href).href, HOME_URL = location.href.split("#")[0];
   const STAGES = 4;                                // clicks to break through
   const WHISPERS = ["", "hm.", "it's hollow.", "one more."];
-  const REACH = [30, 60, 115, 185, 9999];          // how far the crack has spread per stage
-  const GLOW = [0, .25, .5, .85, 1];
-  const SVGNS = "http://www.w3.org/2000/svg";
-  const rift = document.getElementById("rift");
+  const REACH = [3, 7, 12, 19];                    // how far the corner crack has spread per stage
+  const LIGHT = [0, .12, .26, .45];                // how much light leaks through per stage
+  const MONO = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+  const rift = document.getElementById("rift"), pre = rift.querySelector("pre");
   const whisper = document.getElementById("rift-whisper");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const quiet = p => { if (p && p.catch) p.catch(() => {}); };
+  const seeded = s => () => (s = (s * 16807) % 2147483647) / 2147483647;
 
-  /* ---- a branching crack, grown from one point with a seeded random walk ---- */
-  function crack(seed, ox, oy, branches, reach, step, maxDepth = 2, jitter = .8, fork = .26) {
-    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const segs = [];
-    function grow(x, y, ang, len, dist, depth, bi) {
-      const n = Math.max(2, Math.round(len / step));
-      for (let i = 0; i < n; i++) {
-        ang += (rand() - .5) * jitter + (rand() < .12 ? (rand() - .5) * 1.1 : 0);   // mostly straight, with sharp kinks
-        const l = step * (.55 + rand() * .9), nx = x + Math.cos(ang) * l, ny = y + Math.sin(ang) * l;
-        segs.push({ bi, x1: x, y1: y, x2: nx, y2: ny, d: dist, len: l, w: Math.max(.55, 2.4 - depth * .7 - dist / reach * 1.4) });
-        x = nx; y = ny; dist += l;
-        if (depth < maxDepth && rand() < fork) grow(x, y, ang + (rand() < .5 ? -1 : 1) * (.45 + rand() * .7), len * (.3 + rand() * .3), dist, depth + 1, bi);
+  /* ---------- the corner crack: an ascii fracture on a small grid ---------- */
+  const GW = 22, GH = 11, grid = new Array(GW * GH).fill(null);   // {ch, t}
+  (() => {
+    const rand = seeded(29);
+    const MOVES = [[-1, 1, "/"], [-1, 0, "_"], [0, 1, "|"], [1, 1, "\\"]];
+    const pick = w => { let r = rand() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < w.length; i++) if ((r -= w[i]) < 0) return MOVES[i]; return MOVES[0]; };
+    function walk(x, y, t, len, w, depth) {
+      for (let i = 0; i < len; i++) {
+        const [dx, dy, ch] = pick(w);
+        x += dx; y += dy;
+        if (x < 0 || y < 0 || x >= GW || y >= GH) return;
+        const k = y * GW + x;
+        if (!grid[k] || grid[k].t > t) grid[k] = { ch, t };
+        t++;
+        if (depth < 1 && i > 1 && rand() < .2) walk(x, y, t, (len - i) * .6 | 0, [.3, .15, .45, .1], depth + 1);
       }
     }
-    for (let b = 0; b < branches; b++) {
-      const ang = Math.PI * (.52 + .5 * (b + rand() * .6) / branches);   // fan down and to the left
-      grow(ox, oy, ang, reach * (.55 + rand() * .45), 0, 0, b);
+    walk(GW, -1, 0, 20, [.5, .28, .16, .06], 0);    // main fracture, heading down-left
+    walk(GW, -1, 2, 11, [.25, .1, .5, .15], 0);     // a second one, more downward
+  })();
+  // light can only leak out right next to the fracture
+  const lightCells = [];
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    if (grid[y * GW + x]) continue;
+    let t = 1e9;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const g = grid[(y + dy) * GW + (x + dx)];
+      if (x + dx >= 0 && x + dx < GW && y + dy >= 0 && g) t = Math.min(t, g.t);
     }
-    return segs;
+    if (t < 1e9) lightCells.push({ k: y * GW + x, t });
   }
-  const line = (s, cls, extraW) => {
-    const p = document.createElementNS(SVGNS, "path");
-    p.setAttribute("d", `M${s.x1.toFixed(1)} ${s.y1.toFixed(1)}L${s.x2.toFixed(1)} ${s.y2.toFixed(1)}`);
-    p.setAttribute("class", cls);
-    p.style.strokeWidth = s.w + extraW;
-    p.style.strokeDasharray = s.len + 1;
-    p.style.strokeDashoffset = s.len + 1;
-    return p;
-  };
 
-  /* ---- the small crack in the corner ---- */
-  const svg = document.createElementNS(SVGNS, "svg");
-  svg.setAttribute("viewBox", "0 0 320 320");
-  svg.setAttribute("aria-hidden", "true");
-  const blur = document.createElementNS(SVGNS, "filter");
-  blur.id = "rift-blur"; blur.innerHTML = '<feGaussianBlur stdDeviation="2.4"/>';
-  svg.appendChild(blur);
-  const segs = crack(7, 292, 28, 4, 210, 15);
-  const glowLayer = document.createElementNS(SVGNS, "g");
-  glowLayer.setAttribute("filter", "url(#rift-blur)");
-  svg.appendChild(glowLayer);
-  const glows = segs.map(s => { const p = line(s, "g", 2.5); glowLayer.appendChild(p); return p; });
-  const lines = segs.map(s => { const p = line(s, "c", 0); svg.appendChild(p); return p; });
-  rift.appendChild(svg);
-
-  let stage = 0, broken = false;
+  let stage = 0, broken = false, flicker = 0;
   try { if (localStorage.getItem("rift-open") === "1") stage = STAGES - 1; } catch (e) {}
-  function render() {
-    const reach = REACH[stage];
-    segs.forEach((s, i) => {
-      // before the first click only one thin fracture shows, so it reads as damage, not an icon
-      const show = stage === 0 ? (s.bi === 1 && s.d < reach) : s.d < reach;
-      const off = show ? 0 : s.len + 1;
-      lines[i].style.strokeDashoffset = off;
-      glows[i].style.strokeDashoffset = off;
-      glows[i].style.opacity = GLOW[stage];
-    });
-  }
-  render();
-
-  /* ---- sound: a synthesized crack (the click allows audio) ---- */
-  let ac = null;
-  function crackSound(power) {
-    try {
-      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      quiet(ac.resume());
-      const t = ac.currentTime, sr = ac.sampleRate, dur = .2 + power * .25;
-      const buf = ac.createBuffer(1, sr * dur, sr), d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3 - power * .4);
-      const src = ac.createBufferSource(); src.buffer = buf;
-      const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2400 - power * 350; bp.Q.value = .7;
-      const g = ac.createGain(); g.gain.value = .22 + power * .1;
-      src.connect(bp).connect(g).connect(ac.destination); src.start(t);
-      const o = ac.createOscillator(), og = ac.createGain();
-      o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(32, t + .25 + power * .2);
-      og.gain.setValueAtTime(.15 + power * .12, t); og.gain.exponentialRampToValueAtTime(.0001, t + .3 + power * .4);
-      o.connect(og).connect(ac.destination); o.start(t); o.stop(t + 1.2);
-    } catch (e) {}
-  }
-
-  /* ---- falling ascii shards ---- */
-  function shards(n, x0, y0, spread) {
-    if (reduce) return;
-    const CH = "/\\|_-.,'`;:", list = [];
-    for (let i = 0; i < Math.min(n, 18); i++) {
-      const el = document.createElement("span");
-      el.className = "rift-shard";
-      el.textContent = CH[(Math.random() * CH.length) | 0];
-      document.body.appendChild(el);
-      list.push({ el, x: x0 - Math.random() * spread, y: y0 + Math.random() * spread * .5,
-        vx: (Math.random() - .7) * 2, vy: -Math.random() * 2, r: 0, vr: (Math.random() - .5) * 14, a: 1 });
-    }
-    (function tick() {
-      let alive = 0;
-      for (const p of list) {
-        if (p.a <= 0) continue;
-        p.vy += .3; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.a -= .02;
-        if (p.a <= 0 || p.y > innerHeight + 20) { p.a = 0; p.el.remove(); continue; }
-        p.el.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.r}deg)`;
-        p.el.style.opacity = p.a; alive++;
+  function drawCorner() {
+    const reach = REACH[Math.min(stage, STAGES - 1)], lit = new Map();
+    if (!reduce || stage > 0) for (const c of lightCells)
+      if (c.t < reach - 1 && Math.random() < LIGHT[Math.min(stage, STAGES - 1)]) lit.set(c.k, ".:'`*"[(Math.random() * 5) | 0]);
+    let out = "";
+    for (let y = 0; y < GH; y++) {
+      for (let x = 0; x < GW; x++) {
+        const k = y * GW + x, g = grid[k];
+        if (g && g.t < reach) out += `<span class="k">${g.ch}</span>`;
+        else if (lit.has(k)) out += `<span class="l">${lit.get(k)}</span>`;
+        else out += " ";
       }
-      if (alive) requestAnimationFrame(tick);
-    })();
+      out += "\n";
+    }
+    pre.innerHTML = out;
   }
+  function setFlicker() {
+    clearInterval(flicker);
+    if (stage > 0 && !broken && !reduce) flicker = setInterval(drawCorner, 150);
+  }
+  drawCorner(); setFlicker();
+
+  const say = text => {
+    whisper.style.right = (rift.offsetWidth + 6) + "px";
+    whisper.textContent = text;
+    whisper.classList.toggle("show", !!text);
+  };
   function jolt() {
+    if (reduce) return;
     document.body.classList.remove("rift-jolt"); void document.body.offsetWidth;
     document.body.classList.add("rift-jolt");
   }
-  function say(text) {
-    whisper.textContent = text;
-    whisper.classList.toggle("show", !!text);
+
+  /* ---------- sound (each click allows audio) ---------- */
+  let ac = null;
+  function crackSound(power, when = 0, gain = 1) {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      quiet(ac.resume());
+      const t = ac.currentTime + when, sr = ac.sampleRate, dur = .12 + power * .08;
+      const buf = ac.createBuffer(1, Math.ceil(sr * dur), sr), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 4);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2600 - power * 300; bp.Q.value = .8;
+      const g = ac.createGain(); g.gain.value = (.18 + power * .06) * gain;
+      src.connect(bp).connect(g).connect(ac.destination); src.start(t);
+      const o = ac.createOscillator(), og = ac.createGain();
+      o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(35, t + .2);
+      og.gain.setValueAtTime((.08 + power * .05) * gain, t); og.gain.exponentialRampToValueAtTime(.0001, t + .3);
+      o.connect(og).connect(ac.destination); o.start(t); o.stop(t + .35);
+    } catch (e) {}
+  }
+  function rumble() {
+    try {
+      const t = ac.currentTime, sr = ac.sampleRate, buf = ac.createBuffer(1, sr * 2, sr), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / d.length);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 220;
+      const g = ac.createGain(); g.gain.value = .5;
+      src.connect(lp).connect(g).connect(ac.destination); src.start(t);
+    } catch (e) {}
   }
 
   rift.addEventListener("click", () => {
@@ -477,66 +459,169 @@
     crackSound(stage);
     stage++;
     jolt();
-    const box = rift.getBoundingClientRect();
-    shards(3 + stage * 4, box.right - 30, box.top + 30, 40 + stage * 25);
     if (stage >= STAGES) { breakThrough(); return; }
-    render();
+    drawCorner(); setFlicker();
     say(WHISPERS[stage] || "");
   });
 
-  /* ---- breaking through: the crack takes the screen, then the archive fades in ---- */
-  let overlay = null, oldTitle = document.title;
+  /* ---------- breaking through ---------- */
+  let overlay = null;
+  const oldTitle = document.title;
+
   function breakThrough() {
-    broken = true; say("");
+    broken = true; clearInterval(flicker); say("");
     try { localStorage.setItem("rift-open", "1"); } catch (e) {}
-    stage = STAGES; render();
-    crackSound(4);
-
-    // fullscreen needs a click — this one counts
+    stage = STAGES; drawCorner();
+    // go fullscreen first (this click allows it), then shatter once the screen has settled
+    let started = false;
+    const begin = () => { if (!started) { started = true; shatterScreen(); } };
     const root = document.documentElement, fs = root.requestFullscreen || root.webkitRequestFullscreen;
-    if (fs) try { quiet(fs.call(root)); } catch (e) {}
+    if (fs && !reduce) {
+      try { const p = fs.call(root); if (p && p.then) p.then(() => setTimeout(begin, 150), begin); else setTimeout(begin, 250); }
+      catch (e) { begin(); }
+      setTimeout(begin, 700);
+    } else begin();
+  }
 
+  function shatterScreen() {
     overlay = document.createElement("div");
     overlay.id = "rift-break";
     overlay.setAttribute("data-fs-host", "");
-    const W = innerWidth, H = innerHeight, box = rift.getBoundingClientRect();
-    const ox = box.right - 28, oy = box.top + 28, R = Math.hypot(W, H);
-    const huge = crack(11, ox, oy, 6, R * .9, 32, 1, .3, .07);
-    const d = huge.map(q => `M${q.x1.toFixed(0)} ${q.y1.toFixed(0)}L${q.x2.toFixed(0)} ${q.y2.toFixed(0)}`).join("");
-    const big = document.createElementNS(SVGNS, "svg");
-    big.setAttribute("viewBox", `0 0 ${W} ${H}`);
-    big.innerHTML =
-      `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="7" stroke-linecap="round" opacity=".22"/>` +
-      `<path d="${d}" fill="none" stroke="var(--fg)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`;
-    const flash = document.createElement("div"); flash.className = "flash";
-    overlay.append(big, flash);
     document.body.appendChild(overlay);
-
-    if (!reduce) {
-      big.animate([{ clipPath: `circle(0px at ${ox}px ${oy}px)` }, { clipPath: `circle(${R}px at ${ox}px ${oy}px)` }],
-        { duration: 650, easing: "cubic-bezier(.3, .6, .3, 1)", fill: "forwards" });
-      flash.animate([{ opacity: 0 }, { opacity: .18, offset: .2 }, { opacity: 0 }], { duration: 600, easing: "ease-out" });
-    }
-    shards(14, ox, oy, 120);
-
-    try { history.pushState({ rift: true }, "", TARGET); } catch (e) {}
+    try { history.pushState({ rift: true }, "", TARGET_URL); } catch (e) {}
     document.title = "The ASCII Archive";
-    setTimeout(() => overlay && overlay.classList.add("dark"), reduce ? 0 : 650);
-    setTimeout(() => {
+    if (reduce) return openArchive();
+
+    const W = innerWidth, H = innerHeight, dpr = Math.min(devicePixelRatio || 1, 2);
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    overlay.appendChild(cv);
+    const c = cv.getContext("2d");
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.font = `700 14px ${MONO}`; c.textBaseline = "top";
+    const cw = c.measureText("M").width, lh = 17;
+    const cols = Math.ceil(W / cw), rows = Math.ceil(H / lh), n = cols * rows;
+    const ox = W - 2 * cw, oy = lh, maxD = Math.hypot(W, H);
+    const rand = seeded(1 + (Math.random() * 1e6 | 0));
+
+    // shards: a voronoi of seed points, denser near the corner
+    const seeds = [];
+    for (let i = 0; i < 22; i++) {
+      const r = Math.pow(rand(), 1.3) * maxD * .95, a = Math.PI * (.5 + rand() * .5) + (rand() - .5) * .3;
+      seeds.push([ox + Math.cos(a) * r, oy + Math.sin(a) * r]);
+    }
+    for (let i = 0; i < 6; i++) seeds.push([rand() * W, rand() * H]);
+    const owner = new Uint8Array(n), crackCh = new Uint16Array(n), crackT = new Float32Array(n), noise = new Float32Array(n);
+    for (let r = 0, i = 0; r < rows; r++) for (let q = 0; q < cols; q++, i++) {
+      const x = (q + .5) * cw, y = (r + .5) * lh;
+      let best = 0, bd = 1e18;
+      for (let s = 0; s < seeds.length; s++) { const dx = x - seeds[s][0], dy = y - seeds[s][1], d = dx * dx + dy * dy; if (d < bd) { bd = d; best = s; } }
+      owner[i] = best; noise[i] = rand();
+    }
+    // crack lines run along the shard borders; the character follows the border's direction
+    for (let r = 0, i = 0; r < rows; r++) for (let q = 0; q < cols; q++, i++) {
+      const o = owner[i];
+      const nb = (q + 1 < cols && owner[i + 1] !== o) ? owner[i + 1] : (r + 1 < rows && owner[i + cols] !== o) ? owner[i + cols] : -1;
+      if (nb < 0) continue;
+      const vx = seeds[nb][0] - seeds[o][0], vy = seeds[nb][1] - seeds[o][1];
+      let a = Math.atan2(vx, -vy); if (a < 0) a += Math.PI;          // border direction, 0..pi
+      const ch = a < Math.PI / 8 || a > Math.PI * 7 / 8 ? "_" : a < Math.PI * 3 / 8 ? "\\" : a < Math.PI * 5 / 8 ? "|" : "/";
+      crackCh[i] = ch.charCodeAt(0);
+      crackT[i] = Math.hypot((q + .5) * cw - ox, (r + .5) * lh - oy) / maxD * .55 + noise[i] * .05;
+    }
+    // shards nearest the corner fall first
+    const dropAt = seeds.map(([x, y]) => .5 + Math.hypot(x - ox, y - oy) / maxD * .8 + rand() * .08);
+    const dropped = new Uint8Array(seeds.length), parts = [];
+    let ends = 0; for (const t of dropAt) ends = Math.max(ends, t);
+    ends += .3;
+
+    const CRUMBLE = ".:;'`";
+    const row = new Uint16Array(cols), rowL = new Uint16Array(cols);
+    const t0 = performance.now();
+    let soundCount = 0;
+    rumble();
+
+    (function frame(now) {
       if (!overlay) return;
-      const frame = document.createElement("iframe");
-      frame.src = TARGET; frame.title = "The ASCII Archive";
-      frame.setAttribute("allow", "autoplay; fullscreen");
-      let shown = false;
-      const show = () => {
-        if (shown || !overlay) return; shown = true;
-        frame.classList.add("in"); big.style.opacity = 0;
-        try { frame.focus(); } catch (e) {}
-      };
-      frame.addEventListener("load", () => setTimeout(show, 250));
-      setTimeout(show, 3000);
-      overlay.insertBefore(frame, big);
-    }, reduce ? 100 : 1500);
+      const t = (now - t0) / 1000;
+      c.clearRect(0, 0, W, H);
+      // newly fallen shards: a crack sound and some debris
+      for (let s = 0; s < seeds.length; s++) if (!dropped[s] && t >= dropAt[s]) {
+        dropped[s] = 1;
+        if (soundCount++ < 9) crackSound(1 + (soundCount % 3), 0, .5);
+        if (parts.length < 160) for (let k = 0; k < 7; k++) {
+          const [sx, sy] = seeds[s];
+          parts.push({ x: sx + (rand() - .5) * 90, y: sy + (rand() - .5) * 50, vx: (rand() - .5) * 1.6, vy: -rand() * 1.5, ch: "/\\|_.,'"[(rand() * 7) | 0], a: 1 });
+        }
+      }
+      // void where shards have fallen (with a faint starfield so it reads on dark pages)
+      c.fillStyle = "#000";
+      for (let r = 0; r < rows; r++) {
+        let start = -1, i = r * cols;
+        for (let q = 0; q <= cols; q++, i++) {
+          const gone = q < cols && t > dropAt[owner[i]] + noise[i] * .1;
+          if (gone && start < 0) start = q;
+          if (!gone && start >= 0) { c.fillRect(start * cw, r * lh, (q - start) * cw + .5, lh + .5); start = -1; }
+        }
+      }
+      // crack characters, crumbling edges and stars
+      for (let r = 0; r < rows; r++) {
+        let any = false, anyL = false, i = r * cols;
+        for (let q = 0; q < cols; q++, i++) {
+          const td = dropAt[owner[i]] + noise[i] * .1;
+          let ch = 32, chL = 32;
+          if (t > td) { if (noise[i] > .985) ch = 46; }                             // star in the void
+          else if (t > td - .05 && noise[i] > .55) ch = CRUMBLE.charCodeAt((noise[i] * 5) | 0);    // crumbling edge
+          else if (crackCh[i] && t > crackT[i]) {
+            if (t < crackT[i] + .12) chL = crackCh[i]; else ch = crackCh[i];      // fresh cracks glow
+          }
+          row[q] = ch; rowL[q] = chL;
+          if (ch !== 32) any = true; if (chL !== 32) anyL = true;
+        }
+        if (any) { c.fillStyle = t > ends - .3 ? "#555" : getFg(); c.fillText(String.fromCharCode.apply(null, row), 0, r * lh); }
+        if (anyL) { c.fillStyle = getAccent(); c.fillText(String.fromCharCode.apply(null, rowL), 0, r * lh); }
+      }
+      // falling debris
+      c.fillStyle = getFg();
+      for (const p of parts) {
+        if (p.a <= 0) continue;
+        p.vy += .25; p.x += p.vx; p.y += p.vy; p.a -= .02;
+        c.globalAlpha = Math.max(0, p.a); c.fillText(p.ch, p.x, p.y);
+      }
+      c.globalAlpha = 1;
+      if (t < ends) requestAnimationFrame(frame);
+      else { overlay.classList.add("dark"); cv.remove(); openArchive(); }
+    })(t0);
+  }
+  const css = getComputedStyle(document.documentElement);
+  const getFg = () => css.getPropertyValue("--fg").trim() || "#e8e6df";
+  const getAccent = () => css.getPropertyValue("--accent").trim() || "#7cfc9a";
+
+  function openArchive() {
+    if (!overlay) return;
+    overlay.classList.add("dark");
+    const frame = document.createElement("iframe");
+    frame.src = TARGET_URL; frame.title = "The ASCII Archive";
+    frame.setAttribute("allow", "autoplay; fullscreen");
+    let shown = false;
+    const show = () => {
+      if (shown || !overlay) return; shown = true;
+      // if the archive isn't there (e.g. the site is still publishing), say so instead of showing a 404
+      let ok = true;
+      try { ok = !!frame.contentDocument.getElementById("c"); } catch (e) {}
+      if (!ok) {
+        frame.remove();
+        const msg = document.createElement("div"); msg.className = "msg";
+        msg.innerHTML = 'the wall broke, but nothing is behind it yet.\n\n<a href="' + HOME_URL + '">&lt;- back to prak.fun</a>';
+        overlay.appendChild(msg); requestAnimationFrame(() => msg.style.opacity = 1);
+        return;
+      }
+      frame.classList.add("in");
+      try { frame.focus(); } catch (e) {}
+    };
+    frame.addEventListener("load", () => setTimeout(show, 200));
+    setTimeout(show, 4000);
+    overlay.appendChild(frame);
   }
 
   // the back button closes the archive and returns to Prak.fun
@@ -546,7 +631,7 @@
     document.title = oldTitle;
     const doc = document, ex = doc.exitFullscreen || doc.webkitExitFullscreen;
     if ((doc.fullscreenElement || doc.webkitFullscreenElement) && ex) try { quiet(ex.call(doc)); } catch (e) {}
-    broken = false; stage = STAGES - 1; render(); say("one more.");
+    broken = false; stage = STAGES - 1; drawCorner(); setFlicker(); say("one more.");
   });
 })();
 </script>
