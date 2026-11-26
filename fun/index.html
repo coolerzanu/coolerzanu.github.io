@@ -293,5 +293,254 @@
     grid.appendChild(el);
   });
 </script>
+<!-- ============================================================
+     THE CRACK — a secret way into the ASCII Archive (archive/).
+     Click the top-right corner a few times to break through.
+     Self-contained: delete this whole block to remove it.
+     ============================================================ -->
+<style>
+  #rift {
+    position: absolute; top: 0; right: 0; width: 96px; height: 96px;
+    background: none; border: 0; padding: 0; margin: 0; cursor: pointer; z-index: 50;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #rift:focus-visible { outline: 1px dashed var(--accent); outline-offset: -8px; }
+  #rift svg { position: absolute; top: 0; right: 0; width: 320px; height: 320px; overflow: visible; pointer-events: none; }
+  #rift .c {
+    fill: none; stroke: var(--fg); stroke-linecap: round; stroke-linejoin: round; opacity: .5;
+    transition: stroke-dashoffset .5s cubic-bezier(.2, .8, .2, 1), opacity .3s;
+  }
+  #rift .g {
+    fill: none; stroke: var(--accent); stroke-linecap: round; opacity: 0;
+    transition: stroke-dashoffset .5s cubic-bezier(.2, .8, .2, 1), opacity .8s;
+  }
+  #rift:hover .c, #rift:focus-visible .c { opacity: .85; }
+  #rift-whisper {
+    position: absolute; top: 18px; right: 108px; z-index: 50;
+    font-size: 12px; color: var(--dim); white-space: nowrap; pointer-events: none;
+    opacity: 0; transition: opacity .6s;
+  }
+  #rift-whisper.show { opacity: 1; }
+  .rift-shard {
+    position: fixed; z-index: 1001; pointer-events: none; left: 0; top: 0;
+    color: var(--fg); font-size: 13px; font-weight: 700; will-change: transform, opacity;
+  }
+  body.rift-jolt { animation: rift-jolt .3s; }
+  @keyframes rift-jolt {
+    20% { transform: translate(3px, -2px); } 45% { transform: translate(-4px, 2px); }
+    70% { transform: translate(2px, 1px); }
+  }
+  #rift-break { position: fixed; inset: 0; z-index: 1000; background: transparent; transition: background 1s ease; }
+  #rift-break.dark { background: #000; }
+  #rift-break svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity 1.2s ease; }
+  #rift-break .flash { position: absolute; inset: 0; background: var(--accent); opacity: 0; pointer-events: none; }
+  #rift-break iframe {
+    position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
+    background: #000; opacity: 0; transition: opacity 1.4s ease;
+  }
+  #rift-break iframe.in { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    #rift .c, #rift .g { transition: none; }
+    body.rift-jolt { animation: none; }
+  }
+</style>
+<button id="rift" aria-label="There is a crack in the corner. Click it a few times."></button>
+<div id="rift-whisper" aria-live="polite"></div>
+<script>
+(() => {
+  const TARGET = "archive/";                       // where the crack leads
+  const STAGES = 4;                                // clicks to break through
+  const WHISPERS = ["", "hm.", "it's hollow.", "one more."];
+  const REACH = [30, 60, 115, 185, 9999];          // how far the crack has spread per stage
+  const GLOW = [0, .25, .5, .85, 1];
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const rift = document.getElementById("rift");
+  const whisper = document.getElementById("rift-whisper");
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const quiet = p => { if (p && p.catch) p.catch(() => {}); };
+
+  /* ---- a branching crack, grown from one point with a seeded random walk ---- */
+  function crack(seed, ox, oy, branches, reach, step) {
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const segs = [];
+    function grow(x, y, ang, len, dist, depth, bi) {
+      const n = Math.max(2, Math.round(len / step));
+      for (let i = 0; i < n; i++) {
+        ang += (rand() - .5) * .8;
+        const l = step * (.55 + rand() * .9), nx = x + Math.cos(ang) * l, ny = y + Math.sin(ang) * l;
+        segs.push({ bi, x1: x, y1: y, x2: nx, y2: ny, d: dist, len: l, w: Math.max(.55, 2.4 - depth * .7 - dist / reach * 1.4) });
+        x = nx; y = ny; dist += l;
+        if (depth < 2 && rand() < .26) grow(x, y, ang + (rand() < .5 ? -1 : 1) * (.45 + rand() * .7), len * (.3 + rand() * .3), dist, depth + 1, bi);
+      }
+    }
+    for (let b = 0; b < branches; b++) {
+      const ang = Math.PI * (.52 + .5 * (b + rand() * .6) / branches);   // fan down and to the left
+      grow(ox, oy, ang, reach * (.55 + rand() * .45), 0, 0, b);
+    }
+    return segs;
+  }
+  const line = (s, cls, extraW) => {
+    const p = document.createElementNS(SVGNS, "path");
+    p.setAttribute("d", `M${s.x1.toFixed(1)} ${s.y1.toFixed(1)}L${s.x2.toFixed(1)} ${s.y2.toFixed(1)}`);
+    p.setAttribute("class", cls);
+    p.style.strokeWidth = s.w + extraW;
+    p.style.strokeDasharray = s.len + 1;
+    p.style.strokeDashoffset = s.len + 1;
+    return p;
+  };
+
+  /* ---- the small crack in the corner ---- */
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.setAttribute("viewBox", "0 0 320 320");
+  svg.setAttribute("aria-hidden", "true");
+  const blur = document.createElementNS(SVGNS, "filter");
+  blur.id = "rift-blur"; blur.innerHTML = '<feGaussianBlur stdDeviation="2.4"/>';
+  svg.appendChild(blur);
+  const segs = crack(7, 292, 28, 4, 210, 15);
+  const glows = segs.map(s => { const p = line(s, "g", 2.5); p.setAttribute("filter", "url(#rift-blur)"); svg.appendChild(p); return p; });
+  const lines = segs.map(s => { const p = line(s, "c", 0); svg.appendChild(p); return p; });
+  rift.appendChild(svg);
+
+  let stage = 0, broken = false;
+  try { if (localStorage.getItem("rift-open") === "1") stage = STAGES - 1; } catch (e) {}
+  function render() {
+    const reach = REACH[stage];
+    segs.forEach((s, i) => {
+      // before the first click only one thin fracture shows, so it reads as damage, not an icon
+      const show = stage === 0 ? (s.bi === 1 && s.d < reach) : s.d < reach;
+      const off = show ? 0 : s.len + 1;
+      lines[i].style.strokeDashoffset = off;
+      glows[i].style.strokeDashoffset = off;
+      glows[i].style.opacity = GLOW[stage];
+    });
+  }
+  render();
+
+  /* ---- sound: a synthesized crack (the click allows audio) ---- */
+  let ac = null;
+  function crackSound(power) {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      quiet(ac.resume());
+      const t = ac.currentTime, sr = ac.sampleRate, dur = .2 + power * .25;
+      const buf = ac.createBuffer(1, sr * dur, sr), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3 - power * .4);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2400 - power * 350; bp.Q.value = .7;
+      const g = ac.createGain(); g.gain.value = .22 + power * .1;
+      src.connect(bp).connect(g).connect(ac.destination); src.start(t);
+      const o = ac.createOscillator(), og = ac.createGain();
+      o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(32, t + .25 + power * .2);
+      og.gain.setValueAtTime(.15 + power * .12, t); og.gain.exponentialRampToValueAtTime(.0001, t + .3 + power * .4);
+      o.connect(og).connect(ac.destination); o.start(t); o.stop(t + 1.2);
+    } catch (e) {}
+  }
+
+  /* ---- falling ascii shards ---- */
+  function shards(n, x0, y0, spread) {
+    if (reduce) return;
+    const CH = "/\\|_-.,'`;:";
+    for (let i = 0; i < n; i++) {
+      const el = document.createElement("span");
+      el.className = "rift-shard";
+      el.textContent = CH[(Math.random() * CH.length) | 0];
+      document.body.appendChild(el);
+      let x = x0 - Math.random() * spread, y = y0 + Math.random() * spread * .6;
+      let vx = (Math.random() - .7) * 2.2, vy = -Math.random() * 2.5, r = 0, vr = (Math.random() - .5) * 18, a = 1;
+      const tick = () => {
+        vy += .32; x += vx; y += vy; r += vr; a -= .014;
+        el.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
+        el.style.opacity = a;
+        if (a > 0 && y < innerHeight + 20) requestAnimationFrame(tick); else el.remove();
+      };
+      requestAnimationFrame(tick);
+    }
+  }
+  function jolt() {
+    document.body.classList.remove("rift-jolt"); void document.body.offsetWidth;
+    document.body.classList.add("rift-jolt");
+  }
+  function say(text) {
+    whisper.textContent = text;
+    whisper.classList.toggle("show", !!text);
+  }
+
+  rift.addEventListener("click", () => {
+    if (broken) return;
+    crackSound(stage);
+    stage++;
+    jolt();
+    const box = rift.getBoundingClientRect();
+    shards(3 + stage * 4, box.right - 30, box.top + 30, 40 + stage * 25);
+    if (stage >= STAGES) { breakThrough(); return; }
+    render();
+    say(WHISPERS[stage] || "");
+  });
+
+  /* ---- breaking through: the crack takes the screen, then the archive fades in ---- */
+  let overlay = null, oldTitle = document.title;
+  function breakThrough() {
+    broken = true; say("");
+    try { localStorage.setItem("rift-open", "1"); } catch (e) {}
+    stage = STAGES; render();
+    crackSound(4);
+
+    // fullscreen needs a click — this one counts
+    const root = document.documentElement, fs = root.requestFullscreen || root.webkitRequestFullscreen;
+    if (fs) try { quiet(fs.call(root)); } catch (e) {}
+
+    overlay = document.createElement("div");
+    overlay.id = "rift-break";
+    overlay.setAttribute("data-fs-host", "");
+    const W = innerWidth, H = innerHeight, box = rift.getBoundingClientRect();
+    const big = document.createElementNS(SVGNS, "svg");
+    big.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    const bf = document.createElementNS(SVGNS, "filter");
+    bf.id = "rift-blur-big"; bf.innerHTML = '<feGaussianBlur stdDeviation="3"/>';
+    big.appendChild(bf);
+    const huge = crack(11, box.right - 28, box.top + 28, 8, Math.hypot(W, H) * 1.05, 26);
+    const paths = [];
+    huge.forEach(s => {
+      const gl = line(s, "", 4); gl.setAttribute("filter", "url(#rift-blur-big)");
+      gl.style.stroke = "var(--accent)"; gl.style.fill = "none"; gl.style.opacity = .9;
+      const ln = line(s, "", .6); ln.style.stroke = "var(--fg)"; ln.style.fill = "none";
+      [gl, ln].forEach(p => {
+        p.style.strokeLinecap = "round";
+        p.style.transition = reduce ? "none" : `stroke-dashoffset .12s linear ${(s.d / 2600).toFixed(3)}s`;
+        big.appendChild(p); paths.push(p);
+      });
+    });
+    const flash = document.createElement("div"); flash.className = "flash";
+    const frame = document.createElement("iframe");
+    frame.src = TARGET; frame.title = "The ASCII Archive";
+    frame.setAttribute("allow", "autoplay; fullscreen");
+    overlay.append(frame, big, flash);
+    document.body.appendChild(overlay);
+
+    requestAnimationFrame(() => requestAnimationFrame(() => paths.forEach(p => p.style.strokeDashoffset = 0)));
+    if (!reduce) flash.animate([{ opacity: 0 }, { opacity: .35, offset: .15 }, { opacity: 0 }], { duration: 700, easing: "ease-out" });
+    shards(40, box.right - 30, box.top + 30, 220);
+
+    try { history.pushState({ rift: true }, "", TARGET); } catch (e) {}
+    document.title = "The ASCII Archive";
+    setTimeout(() => overlay && overlay.classList.add("dark"), reduce ? 0 : 750);
+    setTimeout(() => {
+      if (!overlay) return;
+      frame.classList.add("in"); big.style.opacity = 0;
+      try { frame.focus(); } catch (e) {}
+    }, reduce ? 200 : 1500);
+  }
+
+  // the back button closes the archive and returns to Prak.fun
+  addEventListener("popstate", () => {
+    if (!overlay) return;
+    overlay.remove(); overlay = null;
+    document.title = oldTitle;
+    const doc = document, ex = doc.exitFullscreen || doc.webkitExitFullscreen;
+    if ((doc.fullscreenElement || doc.webkitFullscreenElement) && ex) try { quiet(ex.call(doc)); } catch (e) {}
+    broken = false; stage = STAGES - 1; render(); say("one more.");
+  });
+})();
+</script>
 </body>
 </html>

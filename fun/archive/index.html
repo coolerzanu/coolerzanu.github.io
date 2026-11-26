@@ -1,0 +1,1254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The ASCII Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --fg: #dcd6c6;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+    --serif: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    transition: background-color .7s ease, color .7s ease;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+  .ui { position: fixed; z-index: 2; transition: opacity 1.2s ease; }
+  body.idle .ui, body.idle .nav { opacity: .12; }
+
+  header.ui {
+    top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 20px 28px;
+    font-size: 11px; letter-spacing: .28em; text-transform: uppercase;
+  }
+  header .mark { opacity: .75; }
+  header .mark a { color: inherit; text-decoration: none; }
+  header .count { opacity: .55; font-variant-numeric: tabular-nums; }
+  header .right { display: flex; align-items: baseline; gap: 22px; }
+  .snd {
+    background: none; border: 0; color: inherit; cursor: pointer; padding: 6px 0;
+    font: inherit; letter-spacing: .2em; text-transform: uppercase; white-space: pre;
+    opacity: .55; transition: opacity .3s;
+  }
+  .snd:hover, .snd[aria-pressed="true"] { opacity: .9; }
+  .zoom { display: flex; align-items: baseline; }
+  header .mark .back { opacity: .7; }
+  header .mark .back:hover { opacity: 1; }
+  header .mark .crumb { opacity: .75; }
+  .fs {
+    background: none; border: 0; color: inherit; cursor: pointer; padding: 6px 0;
+    font: inherit; letter-spacing: .2em; text-transform: uppercase; white-space: pre;
+    opacity: .55; transition: opacity .3s;
+  }
+  .fs:hover { opacity: 1; }
+  .zoom button {
+    background: none; border: 0; color: inherit; cursor: pointer; padding: 6px 2px;
+    font: inherit; letter-spacing: .05em; opacity: .55; transition: opacity .3s;
+  }
+  .zoom button:hover:not(:disabled) { opacity: 1; }
+  .zoom button:disabled { opacity: .18; cursor: default; }
+  .zoom .zval { min-width: 4.2em; text-align: center; font-variant-numeric: tabular-nums; }
+
+  footer.ui {
+    left: 0; right: 0; bottom: 0;
+    padding: 56px 24px 22px;
+    text-align: center;
+    pointer-events: none;
+  }
+  body.full footer.ui {
+    background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 82%, transparent) 45%);
+  }
+  footer .plate { font-size: 10px; letter-spacing: .4em; text-transform: uppercase; opacity: .55; }
+  footer h1 {
+    margin: 6px 0 4px;
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: clamp(22px, 3vw, 30px); letter-spacing: .01em; line-height: 1.1;
+  }
+  footer .note {
+    margin: 0 auto; max-width: 34em;
+    font-family: var(--serif); font-size: 15px; line-height: 1.35; opacity: .72;
+  }
+  footer .meta { margin: 8px 0 0; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; opacity: .4; }
+  #index { margin-top: 12px; display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; pointer-events: auto; }
+  #index button {
+    background: none; border: 0; color: inherit; cursor: pointer;
+    font: 10px var(--mono); letter-spacing: .1em; padding: 6px 7px; opacity: .3;
+    transition: opacity .3s;
+  }
+  #index button:hover { opacity: .75; }
+  #index button[aria-current="true"] { opacity: 1; text-decoration: underline; text-underline-offset: 4px; }
+
+  .nav {
+    position: fixed; z-index: 2; top: 50%; transform: translateY(-50%);
+    background: none; border: 0; color: var(--fg); cursor: pointer;
+    font: 300 44px/1 var(--serif); padding: 24px 18px; opacity: .35;
+    transition: opacity .3s, color .7s;
+  }
+  .nav:hover { opacity: .9; }
+  .nav.prev { left: 6px; }
+  .nav.next { right: 6px; }
+  :focus-visible { outline: 1px dashed currentColor; outline-offset: 3px; }
+
+  .hint {
+    position: fixed; z-index: 2; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 11px; letter-spacing: .3em; text-transform: uppercase;
+    pointer-events: none; opacity: 0; transition: opacity 1.4s ease;
+  }
+  .hint.show { opacity: .5; }
+
+  @media (max-width: 640px) {
+    header.ui { padding: 14px 16px; font-size: 10px; letter-spacing: .2em; }
+    header .right { gap: 12px; }
+    .snd { letter-spacing: .08em; }
+    header .mark { letter-spacing: .14em; }
+    header .count { display: none; }
+    header .mark .crumb { display: none; }
+    .fs { letter-spacing: .08em; }
+    .zoom .zval { min-width: 3.6em; }
+    footer.ui { padding: 40px 16px 14px; }
+    footer .note { font-size: 14px; }
+    .nav { font-size: 34px; padding: 18px 8px; top: auto; bottom: 34px; transform: none; }
+  }
+</style>
+</head>
+<body class="full">
+<canvas id="c" aria-hidden="true"></canvas>
+
+<header class="ui">
+  <div class="mark"><a class="back" href="../" target="_top" title="Back to Prak.fun">&lt;- prak.fun</a><span class="crumb"> / <a href="#1">The ASCII Archive</a></span></div>
+  <div class="right">
+    <button class="fs" id="fs" aria-label="Toggle fullscreen" hidden>[ full ]</button>
+    <div class="zoom" role="group" aria-label="Zoom">
+      <button id="zout" aria-label="Zoom out (more detail)">[−]</button>
+      <button id="zval" class="zval" title="Reset zoom (0)">100%</button>
+      <button id="zin" aria-label="Zoom in" title="Zoom in — bigger characters (+)">[+]</button>
+    </div>
+    <button class="snd" id="snd" aria-pressed="false" aria-label="Toggle soundtrack">[ sound off ]</button>
+    <div class="count"><span id="num">01</span> / <span id="tot">09</span></div>
+  </div>
+</header>
+
+<button class="nav prev" id="prev" aria-label="Previous plate">‹</button>
+<button class="nav next" id="next" aria-label="Next plate">›</button>
+
+<footer class="ui">
+  <div class="plate" id="plate">Plate I</div>
+  <h1 id="title">The Corridor</h1>
+  <p class="note" id="note"></p>
+  <p class="meta" id="meta"></p>
+  <nav id="index" aria-label="Plates"></nav>
+</footer>
+
+<div class="hint" id="hint">← → wander · − + zoom · F fullscreen · M sound</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------- math helpers ---------- */
+const TAU = Math.PI * 2;
+const clamp = (x, a = 0, b = 1) => x < a ? a : x > b ? b : x;
+const mix = (a, b, t) => a + (b - a) * t;
+const fract = x => x - Math.floor(x);
+const smooth = (a, b, x) => { x = clamp((x - a) / (b - a)); return x * x * (3 - 2 * x); };
+function hash(x, y) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+function vnoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm(x, y, o = 4) {
+  let s = 0, a = .5, n = 0;
+  for (let i = 0; i < o; i++) { s += a * vnoise(x, y); n += a; x *= 2.03; y *= 2.03; a *= .5; }
+  return s / n;
+}
+const gray = v => { const k = (clamp(v) * 255) | 0; return `rgb(${k},${k},${k})`; };
+const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgbToHex = a => "#" + a.map(x => Math.round(x).toString(16).padStart(2, "0")).join("");
+const lerpHex = (a, b, t) => { const A = hexToRgb(a), B = hexToRgb(b); return rgbToHex(A.map((x, i) => mix(x, B[i], t))); };
+
+const RAMP_LONG = " .'`^\",:;Il!i~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+const RAMP_SHORT = " .:-=+*#%@";
+const RAMP_SOFT = " .,-:;=+*#%@";
+const RAMP_MID = " .'`,:;-~+=*xoXO#%@";
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+/* Evaluate fn(x, y, i, c, r) for every cell. y is up, |y| <= 1, |x| <= aspect. */
+function field(g, fn) {
+  const { cols, rows, cw, lh, W, H } = g, hx = W / 2, hy = H / 2;
+  let i = 0;
+  for (let r = 0; r < rows; r++) {
+    const y = -((r + .5) * lh - hy) / hy;
+    for (let c = 0; c < cols; c++, i++) g.v[i] = fn(((c + .5) * cw - hx) / hy, y, i, c, r);
+  }
+}
+
+/* ---------- the plates ---------- */
+const SCENES = [
+
+/* I — The Corridor */
+{
+  title: "The Corridor",
+  note: "A hallway that remembers being walked. Recovered from a magnetic tape, undated.",
+  medium: "phosphor on void",
+  layout: "full", bg: "#0a0a0b", fg: "#dcd6c6", ramp: RAMP_SOFT, gamma: 1.35, fps: 18, maxCells: 170000,
+  render(g, t) {
+    const f = 1.5, D = 17, cam = t * .45, grain = Math.floor(t * 12);
+    field(g, (x, y, i) => {
+      const ax = Math.abs(x) + 1e-6, ay = Math.abs(y) + 1e-6;
+      const sx = 1 / ax, sy = 1 / ay, s = Math.min(sx, sy), z = s * f;
+      let v;
+      if (z > D) {                                   // far wall + door of light
+        const px = x * D / f, py = y * D / f;
+        if (Math.abs(px) < .32 && py > -1 && py < .42) return .97;
+        v = .07 + .6 * Math.exp(-Math.hypot(px * 1.4, py + .3) * 1.5);
+      } else {
+        const zz = z + cam;
+        if (sy < sx) {
+          const u = x * s;
+          if (y < 0) {                               // floor
+            v = .3 + ((fract(zz * .8) < .07 || fract(u * 1.5 + .5) < .07) ? .18 : 0);
+            v += .3 * Math.exp(-Math.abs(u) * 3) * Math.exp(-(D - z) * .14);
+          } else {                                   // ceiling + lamps
+            const k = Math.floor(zz / 3.2), lz = fract(zz / 3.2);
+            v = .16;
+            if (lz < .22 && Math.abs(u) < .34) {
+              const hk = hash(k, 11);
+              v = hk < .18 ? .22 : hk < .36 ? (vnoise(t * 5, k) > .55 ? 1 : .25) : 1;
+            }
+          }
+        } else {                                     // side walls
+          const py = y * s, dz = fract(zz / 7.3);
+          v = .42;
+          if (py < -.9) v = .55;
+          if (dz > .42 && dz < .58 && py < .45) v = (dz < .44 || dz > .56) ? .62 : .06;
+        }
+        const lamp = .55 + .45 * Math.cos(TAU * (zz / 3.2 - .11));
+        v *= (.45 + .55 * lamp) * Math.exp(-z * .07);
+        v += .32 * Math.exp(-(D - z) * .32);
+      }
+      return v + (hash(i, grain) - .5) * .05;
+    });
+  }
+},
+
+/* II — A Door in the Dunes */
+{
+  title: "A Door in the Dunes",
+  note: "Freestanding, load-bearing nothing. It opens onto a different hour.",
+  medium: "ink on paper",
+  layout: "framed", aspect: 1.15, frame: .8, cols: 150, maxCells: 120000,
+  bg: "#ebe4d3", fg: "#1f1b16", ramp: RAMP_MID, fps: 8, ragged: true,
+  render(g, t) {
+    const hor = -.16;
+    field(g, (x, y, i, c, r) => {
+      // door
+      const dx = Math.abs(x), dl = -.5, dt = .26, dw = .14, th = .045;
+      if (y > dl && y < dt + th && dx < dw + th) {
+        if (dx < dw && y < dt) {
+          const s = hash(c * 7 + 1, r * 13 + 5);
+          return s > .95 ? .05 + .2 * vnoise(t * 2, s * 97) : .97;
+        }
+        return .42 + .12 * (hash(c, r) - .5);
+      }
+      // long shadow
+      if (y < dl && y > dl - .3) {
+        const x0 = -dw - th + (dl - y) * 2.1;
+        if (x > x0 && x < x0 + 2 * (dw + th)) return .62;
+      }
+      if (y > hor) {
+        // sun, banded
+        const sd = Math.hypot(x, y - hor - .02);
+        if (sd < .58) {
+          const band = fract((y - hor) * 16);
+          if ((y - hor) < .3 && band < mix(.6, 0, (y - hor) / .3)) return 0;
+          return sd > .555 ? .5 : .18;
+        }
+        // pyramids on the horizon
+        const p1 = (x + .82), h1 = .16 - Math.abs(p1) * .9;
+        if (y - hor < h1 && Math.abs(p1) < .18) return p1 < 0 ? .62 : .3;
+        const p2 = (x + .56), h2 = .09 - Math.abs(p2) * .9;
+        if (y - hor < h2 && Math.abs(p2) < .1) return p2 < 0 ? .55 : .25;
+        return .05 * smooth(.2, 0, y - hor) + (hash(c, r) > .992 ? .12 : 0);
+      }
+      // dunes
+      const xs = x + Math.sin(y * 90 + t * 3) * .004 * smooth(-.35, hor, y);
+      const ridge = Math.abs(Math.sin(xs * 3 + y * 22 + fbm(xs * 2, y * 6) * 5));
+      return .03 + .1 * fbm(xs * 3, y * 12) + (ridge > .94 ? .3 : 0) + .1 * smooth(hor - .05, -1, y);
+    });
+  }
+},
+
+/* III — The Set */
+{
+  title: "The Set",
+  note: "After Benoît Mandelbrot, 1980. Each digit counts the steps before escape.",
+  medium: "numerals on void",
+  layout: "full", bg: "#030306", fg: "#e9e1c8", fps: 14, colored: true, maxCells: 70000,
+  palette: (() => {
+    const keys = ["#0b1030", "#1b2a6b", "#3a5bb0", "#86a9d8", "#efe6cc", "#f0a43a", "#c8561c", "#6a1626"];
+    const out = [];
+    for (let k = 0; k < 24; k++) {
+      const p = k / 24 * keys.length, a = Math.floor(p), b = (a + 1) % keys.length;
+      out.push(lerpHex(keys[a], keys[b], p - a));
+    }
+    return out;
+  })(),
+  render(g, t) {
+    const cx = -0.743643887037151, cy = 0.131825904205330;
+    const k = .5 - .5 * Math.cos(t * .045);
+    const zoom = Math.exp(mix(Math.log(.42), Math.log(.0022), k));
+    const maxIt = Math.floor(90 + 170 * k), P = this.palette.length;
+    field(g, (x, y, i) => {
+      const a0 = cx + x * zoom, b0 = cy + y * zoom;
+      const q = (a0 - .25) ** 2 + b0 * b0;
+      if (q * (q + a0 - .25) < .25 * b0 * b0 || (a0 + 1) ** 2 + b0 * b0 < .0625) { g.chr[i] = 32; g.col[i] = 0; return 0; }
+      let a = 0, b = 0, n = 0, a2 = 0, b2 = 0;
+      while (n < maxIt && a2 + b2 < 64) { b = 2 * a * b + b0; a = a2 - b2 + a0; a2 = a * a; b2 = b * b; n++; }
+      if (n >= maxIt) { g.chr[i] = 32; g.col[i] = 0; return 0; }
+      const nu = n + 1 - Math.log2(Math.log(a2 + b2) / 2);
+      g.col[i] = 1 + (((Math.floor(Math.sqrt(nu) * 4.2 - t * 1.1) % P) + P) % P);
+      g.chr[i] = 48 + (n % 10);
+      return 1;
+    });
+  }
+},
+
+/* IV — Colonnade */
+{
+  title: "Colonnade",
+  note: "What remains of a temple to a god nobody wrote down.",
+  medium: "moonlight on stone",
+  layout: "framed", aspect: 1.7, frame: .82, cols: 160, maxCells: 42000,
+  bg: "#0c0d10", fg: "#d4ccba", ramp: RAMP_MID, gamma: 1.2, fps: 12,
+  render(g, t) {
+    const cam = [Math.sin(t * .05) * 3 + t * .12, 1.35, -2.5];
+    const L = (() => { const l = [-.55, .5, -.45], m = Math.hypot(...l); return l.map(q => q / m); })();
+    const colH = (ix, iz) => {
+      const h = hash(ix + 40, iz + 9);
+      return h < .26 ? .5 + h * 7 : h < .34 ? -1 : 3.6;
+    };
+    const sdf = (px, py, pz) => {
+      let d = py;
+      const iz = clamp(Math.round((pz - 4) / 6), 0, 2), zc = 4 + iz * 6, off = iz * 1.7;
+      const ix = Math.round((px - off) / 3.4), xc = off + ix * 3.4;
+      const H = colH(ix, iz);
+      if (H > 0) {
+        const qx = px - xc, qz = pz - zc, rr = Math.hypot(qx, qz);
+        const ang = Math.atan2(qz, qx);
+        const rad = (py < .25 ? .52 : .38) + .022 * Math.cos(ang * 18);
+        let dc = Math.max(rr - rad, py - H);
+        if (H > 3) dc = Math.min(dc, Math.max(Math.abs(qx) - .56, Math.abs(qz) - .56, Math.abs(py - H - .15) - .15));
+        d = Math.min(d, dc);
+      }
+      return d;
+    };
+    const mx = -1.0, my = .52, grain = Math.floor(t * 10);
+    field(g, (x, y, i, c, r) => {
+      let dx = x, dy = y - .08, dz = 1.55;
+      const m = Math.hypot(dx, dy, dz); dx /= m; dy /= m; dz /= m;
+      let d = 0, hit = false, px, py, pz;
+      for (let s = 0; s < 72; s++) {
+        px = cam[0] + dx * d; py = cam[1] + dy * d; pz = cam[2] + dz * d;
+        const h = sdf(px, py, pz);
+        if (h < .004) { hit = true; break; }
+        d += h * .8;
+        if (d > 45) break;
+      }
+      const sky = () => {
+        const md = Math.hypot(x - mx, y - my);
+        if (md < .11) return .92 - .3 * fbm(x * 30, y * 30, 3);
+        let v = .06 * smooth(.5, -.1, y) + .3 * Math.exp(-(md - .11) * 8);
+        if (hash(c, r) > .994) v = Math.max(v, .5 * vnoise(t * 1.3, c + r * .1));
+        return v;
+      };
+      if (!hit) return sky();
+      const e = .01, s0 = sdf(px, py, pz);
+      let nx = sdf(px + e, py, pz) - s0, ny = sdf(px, py + e, pz) - s0, nz = sdf(px, py, pz + e) - s0;
+      const nm = Math.hypot(nx, ny, nz) || 1; nx /= nm; ny /= nm; nz /= nm;
+      let v = .05 + .95 * Math.max(0, nx * L[0] + ny * L[1] + nz * L[2]);
+      v *= clamp(.45 + .55 * sdf(px + nx * .35, py + ny * .35, pz + nz * .35) / .35);
+      if (py < .01) {
+        if (fract(px * .6) < .05 || fract(pz * .6) < .05) v *= .55;
+        v *= .5 + .3 * fbm(px * .8, pz * .8, 3);
+      }
+      const fog = 1 - Math.exp(-d * .06);
+      return mix(v, .04, fog) + (hash(i, grain) - .5) * .03;
+    });
+  }
+},
+
+/* V — Torus */
+{
+  title: "Torus",
+  note: "After Andy Sloane’s donut.c, 2006. A ring turning in a room with no walls.",
+  medium: "luminance on void",
+  layout: "framed", aspect: 1, frame: .5, cols: 80, maxCells: 24000,
+  bg: "#08080a", fg: "#e8dcc0", fps: 30,
+  init(cols) {
+    this.tjCols = cols;
+    const NJ = Math.max(315, cols * 3), NI = Math.max(900, cols * 9);
+    this.tj = Array.from({ length: NJ }, (_, k) => [Math.sin(k / NJ * TAU), Math.cos(k / NJ * TAU)]);
+    this.ti = Array.from({ length: NI }, (_, k) => [Math.sin(k / NI * TAU), Math.cos(k / NI * TAU)]);
+    this.chars = ".,-~:;=!*#$@".split("").map(ch => ch.charCodeAt(0));
+  },
+  render(g, t) {
+    if (!this.tj || this.tjCols !== g.cols) this.init(g.cols);
+    const { cols, rows, cw, lh, W, H } = g, n = cols * rows;
+    if (!this.zb || this.zb.length !== n) this.zb = new Float32Array(n);
+    const zb = this.zb; zb.fill(0); g.chr.fill(32); g.v.fill(0);
+    const A = t * .55, B = t * .3, sA = Math.sin(A), cA = Math.cos(A), sB = Math.sin(B), cB = Math.cos(B);
+    const K = 1.32, hy = H / 2, hx = W / 2;
+    for (const [sj, cj] of this.tj) {
+      const cj2 = cj + 2;
+      for (const [si, ci] of this.ti) {
+        const mess = 1 / (si * cj2 * sA + sj * cA + 5);
+        const tt = si * cj2 * cA - sj * sA;
+        const X = (ci * cj2 * cB - tt * sB) * mess * K, Y = (ci * cj2 * sB + tt * cB) * mess * K;
+        const col = Math.floor((X * hy + hx) / cw), row = Math.floor((-Y * hy + hy) / lh);
+        if (col < 0 || row < 0 || col >= cols || row >= rows) continue;
+        const idx = row * cols + col;
+        if (mess > zb[idx]) {
+          zb[idx] = mess;
+          const N = 8 * ((sj * sA - si * cj * cA) * cB - si * cj * sA - sj * cA - ci * cj * sB);
+          g.chr[idx] = this.chars[N > 0 ? Math.min(11, N | 0) : 0];
+        }
+      }
+    }
+  }
+},
+
+/* VI — The Tide */
+{
+  title: "The Tide",
+  note: "A ship that never arrives under a moon that never sets.",
+  medium: "phosphor on void",
+  layout: "full", bg: "#06080c", fg: "#cdd6e2", ramp: RAMP_SOFT, gamma: 1.3, fps: 16, maxCells: 170000,
+  render(g, t) {
+    const hor = .04, A = g.W / g.H, mx = Math.min(A * .45, .95), my = .5, mr = .13;
+    const bob = Math.sin(t * .8) * .004, shipX = -Math.min(A * .5, 1.05);
+    field(g, (x, y, i, c, r) => {
+      if (y > hor) {
+        // ship silhouette
+        const sxp = x - shipX, sy = y - hor - bob;
+        if (sy > -.004 && sy < .022 && Math.abs(sxp) < .07 - (.022 - sy) * 1.2) return .42;
+        if (sy >= .022 && sy < .15 && Math.abs(sxp + .02) < (.15 - sy) * .35 + .002) return .3;
+        if (sy >= .022 && sy < .12 && Math.abs(sxp - .045) < (.12 - sy) * .3 + .002) return .26;
+        if (Math.abs(sxp + .02) < .004 && sy > 0 && sy < .17) return .5;
+        // moon
+        const md = Math.hypot(x - mx, y - my);
+        if (md < mr) return .93 - .35 * smooth(.45, .75, fbm(x * 14, y * 14, 3));
+        let v = .1 * smooth(.15, 0, y - hor) + .3 * Math.exp(-(md - mr) * 14);
+        const cl = fbm(x * 1.1 + t * .012, y * 7, 3);
+        if (cl > .6 && y - hor > .12) v += .12 * smooth(.6, .7, cl);
+        if (hash(c, r) > .993) v = Math.max(v, .45 + .4 * vnoise(t * 1.5, c * .3 + r));
+        return v;
+      }
+      const dd = hor - y, depth = .1 / (dd + .006);
+      const wave = vnoise(x * depth * 3 + t * .08, depth * 7 - t * .7);
+      let v = .12 * wave * wave * smooth(0, .4, dd) + .07 * smooth(.04, 0, dd);
+      const spread = .025 + dd * .3;
+      const colm = Math.exp(-(((x - mx) / spread) ** 2));
+      const gl = vnoise(x * 14 + Math.sin(depth * 3) * .5, depth * 9 - t * 1.6);
+      v += .85 * colm * smooth(.42, .8, gl) * (1 - dd * .4);
+      // the ship's reflection, broken by waves
+      if (Math.abs(x - shipX) < .05 && dd < .08 && vnoise(x * 40, depth * 20 - t) > .55) v = Math.max(v, .22);
+      return v;
+    });
+  }
+},
+
+/* VII — The Visitor */
+{
+  title: "The Visitor",
+  note: "Made entirely of letters it has not yet learned to read.",
+  medium: "type on paper",
+  layout: "framed", aspect: .72, frame: .84, cols: 72, maxCells: 70000,
+  bg: "#ebe3d1", fg: "#1d1a16", fps: 10,
+  render(g, t) {
+    const L = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const cwn = g.cw / (g.H / 2), lhn = g.lh / (g.H / 2);
+    const sway = Math.sin(t * .4) * .01;
+    g.chr.fill(32);
+    field(g, (x0, y, i, c, r) => {
+      const x = x0 - sway * (y + .85);
+      const hood = (x / .155) ** 2 + ((y - .52) / .2) ** 2 < 1;
+      const face = (x / .075) ** 2 + ((y - .49) / .11) ** 2 < 1;
+      let inside = hood && !face;
+      if (!inside && y < .42) {
+        const hw = y > .3 ? .1 + .12 * Math.sqrt(clamp((.42 - y) / .12)) : .22 + (.3 - y) * .11 + .015 * Math.sin(y * 14 + x * 2);
+        const hem = -.83 + .025 * Math.sin(x * 40) + .03 * vnoise(x * 18, 1);
+        inside = Math.abs(x) < hw && y > hem;
+      }
+      if (inside) {
+        const edge = fbm(c * .22 + 3, r * .22 + t * .05, 3);
+        const fold = Math.sin(x * 26 + Math.sin(y * 4) * 2) > .9;
+        if (edge > .22 && !(fold && hash(c, r) > .4)) {
+          const seed = Math.floor(t * .6 + hash(c, r) * 17);
+          g.chr[i] = L.charCodeAt(Math.floor(hash(c * 31 + seed, r) * 26));
+          return 1;
+        }
+        return 0;
+      }
+      // letters drifting up from the hood
+      if (y > .7 && Math.abs(x) < .2 + (y - .7) * .4) {
+        const rr = Math.floor(r + t * 2.2);
+        if (hash(c, rr) > .86 + (y - .7) * .4) { g.chr[i] = L.charCodeAt(Math.floor(hash(rr, c) * 26)); return 1; }
+      }
+      // dotted doorway behind
+      const ax = Math.abs(x0);
+      if (Math.abs(ax - .44) < cwn * .5 && y > -.86 && y < .9 && r % 2 === 0) { g.chr[i] = 58; return 1; }
+      if (Math.abs(y - .9) < lhn * .5 && ax < .44 && c % 2 === 0) { g.chr[i] = 46; return 1; }
+      // shadow
+      if ((x0 / .5) ** 2 + ((y + .87) / .04) ** 2 < 1) { g.chr[i] = hash(c, r) > .5 ? 95 : 46; return 1; }
+      return 0;
+    });
+  }
+},
+
+/* VIII — Stairs, Unfinished */
+{
+  title: "Stairs, Unfinished",
+  note: "The architect stopped here. So did the stairs.",
+  medium: "lamplight on void",
+  layout: "framed", aspect: 1.35, frame: .82, cols: 150, maxCells: 110000,
+  bg: "#13100c", fg: "#e2cfa4", ramp: RAMP_MID, fps: 15,
+  draw(ctx, A, t) {
+    const N = 11, run = .62, rise = .52, depth = 1.7, th = .3;
+    const P = (x, y, z) => [(x - z) * .866, y + (x + z) * .5];
+    const polys = [];
+    const box = (x0, x1, y0, y1, z0, z1, k = 1, bb = true) => {
+      polys.push({ v: .5 * k, bb, p: [P(x0, y0, z0), P(x0, y1, z0), P(x0, y1, z1), P(x0, y0, z1)] });
+      polys.push({ v: .27 * k, bb, p: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0)] });
+      polys.push({ v: .93 * k, bb, p: [P(x0, y1, z0), P(x1, y1, z0), P(x1, y1, z1), P(x0, y1, z1)] });
+    };
+    // falling fragments (behind / below)
+    for (let k = 0; k < 16; k++) {
+      const i = k % N, ph = fract(t * .035 + hash(k, 3));
+      const fx = i * run + hash(k, 1) * run, fz = hash(k, 2) * depth, sz = .08 + hash(k, 4) * .1;
+      const fy = (i + 1) * rise - th - .25 - ph * 3.2;
+      box(fx, fx + sz, fy, fy + sz, fz, fz + sz, 1 - ph, false);
+    }
+    for (let i = N - 1; i >= 0; i--) {
+      if (i === N - 1) {             // the door at the top
+        const xd = i * run + .2, yb = (i + 1) * rise, hD = 1.5;
+        box(xd, xd + .14, yb, yb + hD, 1.3, 1.46);
+        polys.push({ v: 1, bb: true, p: [P(xd, yb, .4), P(xd, yb + hD, .4), P(xd, yb + hD, 1.3), P(xd, yb, 1.3)] });
+        box(xd, xd + .14, yb, yb + hD, .24, .4);
+        box(xd, xd + .14, yb + hD, yb + hD + .16, .24, 1.46);
+      }
+      const top = (i + 1) * rise;
+      box(i * run, (i + 1) * run, top - th, top, 0, depth);
+    }
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const q of polys) if (q.bb) for (const [x, y] of q.p) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const S = Math.min(2 * A * .9 / (x1 - x0), 2 * .9 / (y1 - y0));
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, bob = Math.sin(t * .4) * .02;
+    // a pale disc behind everything
+    ctx.fillStyle = gray(.05); ctx.beginPath(); ctx.arc(.3, .25, .6, 0, TAU); ctx.fill();
+    for (const q of polys) {
+      ctx.beginPath();
+      q.p.forEach(([x, y], j) => { const X = (x - cx) * S, Y = (y - cy) * S + bob; j ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+      ctx.closePath(); ctx.fillStyle = gray(q.v); ctx.fill();
+    }
+  }
+},
+
+/* IX — Astrolabe */
+{
+  title: "Astrolabe",
+  note: "For measuring the stars of a sky that is not ours.",
+  medium: "ink on vellum",
+  layout: "framed", aspect: 1, frame: .84, cols: 120, maxCells: 110000,
+  bg: "#e8dcc3", fg: "#3a2716", ramp: RAMP_MID, fps: 12,
+  draw(ctx, A, t) {
+    const R = .86;
+    ctx.lineCap = "round";
+    const ring = (x, y, r, lw, v) => { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.lineWidth = lw; ctx.strokeStyle = gray(v); ctx.stroke(); };
+    const line = (x0, y0, x1, y1, lw, v) => { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineWidth = lw; ctx.strokeStyle = gray(v); ctx.stroke(); };
+    ctx.translate(0, -.04);
+    ring(0, R + .07, .045, .025, 1);                      // hanger
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fillStyle = gray(.03); ctx.fill();
+    ring(0, 0, R, .05, 1); ring(0, 0, .74, .018, .85);
+    for (let k = 0; k < 144; k++) {
+      const a = k / 144 * TAU, long = k % 12 === 0, mid = k % 6 === 0;
+      const r0 = long ? .745 : mid ? .775 : .8;
+      line(Math.cos(a) * r0, Math.sin(a) * r0, Math.cos(a) * .83, Math.sin(a) * .83, long ? .02 : .01, long ? 1 : .65);
+    }
+    // the plate: almucantars and tropics
+    ctx.save(); ctx.beginPath(); ctx.arc(0, 0, .73, 0, TAU); ctx.clip();
+    for (let k = 0; k < 9; k++) ring(0, .1 + k * .036, .64 - k * .07, .011, .5);
+    ring(0, 0, .3, .012, .45); ring(0, 0, .55, .012, .45);
+    line(-.73, -.06, .73, -.06, .012, .55);
+    // the rete (rotating)
+    ctx.rotate(t * .05);
+    ring(0, .22, .48, .04, .95); ring(0, .22, .43, .012, .7);
+    line(-.73, 0, .73, 0, .03, .9); line(0, -.73, 0, .73, .03, .9);
+    for (let k = 0; k < 9; k++) {
+      const a = hash(k, 7) * TAU, r = .3 + hash(k, 8) * .38;
+      const ex = Math.cos(a) * r, ey = Math.sin(a) * r;
+      ctx.beginPath(); ctx.moveTo(ex * .55, ey * .55);
+      ctx.quadraticCurveTo(ex * .8 + ey * .15, ey * .8 - ex * .15, ex, ey);
+      ctx.lineWidth = .016; ctx.strokeStyle = gray(.9); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ex, ey, .02, 0, TAU); ctx.fillStyle = gray(1); ctx.fill();
+    }
+    ctx.restore();
+    // the rule
+    ctx.save(); ctx.rotate(-t * .09 + 1);
+    ctx.beginPath(); ctx.moveTo(-.84, -.012); ctx.lineTo(-.05, -.035); ctx.lineTo(.05, -.035); ctx.lineTo(.84, -.012);
+    ctx.lineTo(.84, .012); ctx.lineTo(.05, .035); ctx.lineTo(-.05, .035); ctx.lineTo(-.84, .012); ctx.closePath();
+    ctx.fillStyle = gray(.85); ctx.fill();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(0, 0, .05, 0, TAU); ctx.fillStyle = gray(1); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, .018, 0, TAU); ctx.fillStyle = gray(.1); ctx.fill();
+  }
+},
+];
+
+/* ---------- engine ---------- */
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d", { alpha: false });
+const off = document.createElement("canvas");
+const octx = off.getContext("2d", { willReadFrequently: true });
+const tintLayer = document.createElement("canvas"), tlctx = tintLayer.getContext("2d");
+const tintMap = document.createElement("canvas"), tmctx = tintMap.getContext("2d");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+const FONT = '"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace';
+
+let cur = 0, g = null, dpr = 1, vw = 0, vh = 0;
+let lastRender = -1e9, dirty = true, paintDirty = true;
+let trans = { start: -1e9, from: SCENES[0].bg };
+let bgNow = SCENES[0].bg;
+let rowBuf = new Uint16Array(1);
+let renderCost = 0;
+/* zoom: 100% is the default. Zooming out packs in more, smaller characters (more detail). */
+const ZOOMS = [2, 1.4, 1, .71, .5, .36, .25];
+let zoomIdx = 2, zoomCapped = false;
+try { const z = parseInt(localStorage.getItem("archive-zoom"), 10); if (z >= 0 && z < ZOOMS.length) zoomIdx = z; } catch (e) {}
+
+function layout() {
+  vw = innerWidth; vh = innerHeight; dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr);
+  const s = SCENES[cur], small = vw < 640;
+  let W, H, ox, oy;
+  if (s.layout === "full") { W = vw; H = vh; ox = 0; oy = 0; }
+  else {
+    const top = small ? 48 : 64, bot = small ? 170 : 160;
+    const aw = vw * (small ? .94 : .82), ah = Math.max(120, vh - top - bot), k = s.frame || .8;
+    H = Math.min(ah * k, aw * k / s.aspect); W = H * s.aspect;
+    ox = (vw - W) / 2; oy = top + (ah - H) / 2;
+  }
+  const target = (s.layout === "full" ? 230 : (s.cols || 150)) / ZOOMS[zoomIdx];
+  const want = W / target / .6;
+  let fs = clamp(want, 2.5, 40);
+  const budget = s.maxCells || 150000;
+  if ((W / (fs * .6)) * (H / (fs * 1.02)) > budget) fs = Math.sqrt((W * H) / (budget * .6 * 1.02));
+  zoomCapped = fs > want * 1.03;
+  ctx.font = `${fs}px ${FONT}`;
+  const cw = ctx.measureText("M").width, lh = fs * 1.02;
+  const cols = Math.max(8, Math.floor(W / cw)), rows = Math.max(8, Math.floor(H / lh));
+  const W2 = cols * cw, H2 = rows * lh, n = cols * rows;
+  g = {
+    cols, rows, cw, lh, fs, W: W2, H: H2,
+    ox: ox + (W - W2) / 2, oy: oy + (H - H2) / 2,
+    v: new Float32Array(n), chr: new Int16Array(n).fill(-1), col: new Uint8Array(n),
+    rnd: Float32Array.from({ length: n }, () => Math.random()),
+  };
+  rowBuf = new Uint16Array(cols);
+  document.getElementById("meta").textContent =
+    `${s.medium} · ${cols} × ${rows} · ${(cols * rows).toLocaleString()} glyphs`;
+  dirty = true; paintDirty = true; renderCost = 0;
+  if (typeof updateZoomUI === "function") updateZoomUI();
+}
+
+function renderScene(s, t) {
+  g.chr.fill(-1);
+  if (s.draw) {
+    const SX = 3, SY = 4, ow = g.cols * SX, oh = g.rows * SY;
+    if (off.width !== ow || off.height !== oh) { off.width = ow; off.height = oh; }
+    octx.setTransform(1, 0, 0, 1, 0, 0); octx.fillStyle = "#000"; octx.fillRect(0, 0, ow, oh);
+    const A = g.W / g.H;
+    octx.setTransform(ow / (2 * A), 0, 0, -oh / 2, ow / 2, oh / 2);
+    s.draw(octx, A, t);
+    const d = octx.getImageData(0, 0, ow, oh).data;
+    let i = 0;
+    for (let r = 0; r < g.rows; r++) for (let c = 0; c < g.cols; c++, i++) {
+      let sum = 0;
+      for (let yy = 0; yy < SY; yy++) {
+        let p = ((r * SY + yy) * ow + c * SX) * 4;
+        for (let xx = 0; xx < SX; xx++, p += 4) sum += d[p];
+      }
+      g.v[i] = sum / (255 * SX * SY);
+    }
+  } else s.render(g, t);
+  if (s.ragged) {
+    const A = g.W / g.H; let i = 0;
+    for (let r = 0; r < g.rows; r++) {
+      const y = Math.abs(1 - (r + .5) * g.lh / (g.H / 2));
+      for (let c = 0; c < g.cols; c++, i++) {
+        const x = Math.abs(((c + .5) * g.cw - g.W / 2) / (g.H / 2)) / A;
+        g.v[i] *= smooth(1.0, .86, Math.max(x, y) + .1 * (vnoise(c * .25, r * .25) - .5));
+      }
+    }
+  }
+}
+
+function paint(now) {
+  const s = SCENES[cur], tp = clamp((now - trans.start) / 900);
+  bgNow = tp < 1 ? lerpHex(trans.from, s.bg, smooth(0, 1, tp)) : s.bg;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = bgNow; ctx.fillRect(0, 0, vw, vh);
+  ctx.font = `${g.fs}px ${FONT}`; ctx.textBaseline = "top";
+  const ramp = s.ramp || RAMP_SHORT, L = ramp.length;
+  const rampCodes = Array.from(ramp, ch => ch.charCodeAt(0));
+  const { cols, rows, v, chr, col, rnd } = g;
+  const reveal = tp * 1.15, gam = s.gamma || 1;
+
+  const glyph = (i, c, r) => {
+    if (tp < 1) {
+      const q = rnd[i];
+      if (q > reveal) return 32;
+      if (q > reveal - .1) return chr[i] > 32 || v[i] > .05 ? rampCodes[1 + ((Math.random() * (L - 1)) | 0)] : 32;
+    }
+    if (chr[i] >= 0) return chr[i];
+    const vv = gam === 1 ? clamp(v[i]) : Math.pow(clamp(v[i]), gam);
+    let k = Math.floor(vv * (L - 1) + BAYER[(r & 3) * 4 + (c & 3)] / 16);
+    return rampCodes[k < 0 ? 0 : k >= L ? L - 1 : k];
+  };
+
+  if (!s.colored) {
+    ctx.fillStyle = s.fg;
+    for (let r = 0; r < rows; r++) {
+      let any = false, i = r * cols;
+      for (let c = 0; c < cols; c++, i++) { const code = glyph(i, c, r); rowBuf[c] = code; if (code !== 32) any = true; }
+      if (any) ctx.fillText(String.fromCharCode.apply(null, rowBuf), g.ox, g.oy + r * g.lh);
+    }
+  } else {
+    // draw all glyphs once in white, then tint them through a one-pixel-per-cell colour map
+    const lw = Math.ceil(g.W * dpr), lhp = Math.ceil(g.H * dpr);
+    if (tintLayer.width !== lw || tintLayer.height !== lhp) { tintLayer.width = lw; tintLayer.height = lhp; }
+    if (tintMap.width !== cols || tintMap.height !== rows) { tintMap.width = cols; tintMap.height = rows; }
+    if (!s.rgb) s.rgb = s.palette.map(hexToRgb);
+    const fgRgb = hexToRgb(s.fg), img = tmctx.createImageData(cols, rows), px = img.data;
+    tlctx.setTransform(1, 0, 0, 1, 0, 0); tlctx.globalCompositeOperation = "source-over";
+    tlctx.clearRect(0, 0, lw, lhp);
+    tlctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tlctx.font = ctx.font; tlctx.textBaseline = "top"; tlctx.fillStyle = "#fff";
+    for (let r = 0; r < rows; r++) {
+      let any = false, i = r * cols;
+      for (let c = 0; c < cols; c++, i++) {
+        const code = glyph(i, c, r); rowBuf[c] = code;
+        if (code !== 32) {
+          any = true;
+          const rgb = col[i] ? s.rgb[col[i] - 1] : fgRgb, o = i * 4;
+          px[o] = rgb[0]; px[o + 1] = rgb[1]; px[o + 2] = rgb[2]; px[o + 3] = 255;
+        }
+      }
+      if (any) tlctx.fillText(String.fromCharCode.apply(null, rowBuf), 0, r * g.lh);
+    }
+    tmctx.putImageData(img, 0, 0);
+    tlctx.setTransform(1, 0, 0, 1, 0, 0);
+    tlctx.globalCompositeOperation = "source-in";
+    tlctx.imageSmoothingEnabled = false;
+    tlctx.drawImage(tintMap, 0, 0, cols, rows, 0, 0, cols * g.cw * dpr, rows * g.lh * dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(tintLayer, Math.round(g.ox * dpr), Math.round(g.oy * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  paintDirty = tp < 1;
+}
+
+function loop(now) {
+  const s = SCENES[cur], t = now / 1000;
+  const fps = reduced ? 0 : (s.fps || 15);
+  if (dirty || (fps && now - lastRender > Math.max(1000 / fps, renderCost * 2.5))) {
+    const t0 = performance.now();
+    renderScene(s, reduced ? 20 : t);
+    paint(now);
+    renderCost = mix(renderCost || 16, performance.now() - t0, .3);
+    lastRender = now; dirty = false;
+  } else if (paintDirty) paint(now);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- sound: a generative score, one movement per plate ---------- */
+/* Everything is synthesized live with the Web Audio API — no audio files.
+   Each entry lines up with the plate of the same number. */
+const SOUNDS = [
+  { desc: "fluorescent hum · music from another room", root: 110, scale: [0, 2, 3, 5, 7, 9, 10],
+    wave: "sawtooth", cutoff: 340, detune: 9, padGain: .2, chordLen: 16, textures: ["hum"],
+    events: [{ kind: "distant", every: [10, 18], oct: [2, 3], gain: .16 }] },
+  { desc: "desert wind · drone in D hijaz", root: 73.42, scale: [0, 1, 4, 5, 7, 8, 10],
+    wave: "triangle", cutoff: 900, detune: 6, padGain: .17, chordLen: 18, textures: ["wind"],
+    events: [{ kind: "swell", every: [4, 9], oct: [1, 3], gain: .09 }] },
+  { desc: "glass bells in C lydian", root: 130.81, scale: [0, 2, 4, 6, 7, 9, 11],
+    wave: "sine", cutoff: 1400, detune: 5, padGain: .13, chordLen: 12, textures: [],
+    events: [{ kind: "bell", every: [.3, .9], oct: [1, 3], gain: .055 }] },
+  { desc: "night choir · temple bell · crickets", root: 65.41, scale: [0, 2, 3, 5, 7, 9, 10],
+    wave: "sawtooth", cutoff: 850, detune: 14, padGain: .16, chordLen: 15, textures: [],
+    events: [{ kind: "temple", every: [12, 20], oct: [2, 2], gain: .16 }, { kind: "cricket", every: [1.2, 4], gain: .012 }] },
+  { desc: "sonar · pure intervals", root: 98, scale: [0, 7, 12, 14, 19],
+    wave: "sine", cutoff: 800, detune: 3, padGain: .15, chordLen: 20, textures: [],
+    events: [{ kind: "pulse", every: [1.15, 1.25], oct: [1, 2], gain: .09 }] },
+  { desc: "surf · foghorn · A aeolian", root: 55, scale: [0, 2, 3, 5, 7, 8, 10],
+    wave: "sawtooth", cutoff: 480, detune: 10, padGain: .16, chordLen: 18, textures: [],
+    events: [{ kind: "wave", every: [6, 10], gain: .18 }, { kind: "foghorn", every: [24, 40], oct: [0, 0], gain: .11 }] },
+  { desc: "warped music box · whole-tone", root: 146.83, scale: [0, 2, 4, 6, 8, 10],
+    wave: "sine", cutoff: 900, detune: 8, padGain: .09, chordLen: 14, textures: [],
+    events: [{ kind: "musicbox", every: [.28, .95], oct: [1, 3], gain: .07 }, { kind: "swell", every: [6, 11], oct: [0, 1], gain: .07 }] },
+  { desc: "endless ascent · shepard tone", root: 87.31, scale: [0, 2, 4, 5, 7, 9, 11],
+    wave: "triangle", cutoff: 700, detune: 7, padGain: .1, chordLen: 16, textures: ["shepard"], events: [] },
+  { desc: "clockwork · pentatonic chimes", root: 116.54, scale: [0, 2, 4, 7, 9],
+    wave: "triangle", cutoff: 1000, detune: 6, padGain: .12, chordLen: 14, textures: [],
+    events: [{ kind: "tick", every: [1, 1], gain: .05 }, { kind: "bell", every: [2.2, 3.6], oct: [2, 3], gain: .065 }] },
+];
+const PROGRESSION = [[0, 2, 4, 6], [5, 0, 2, 4], [3, 5, 0, 2], [4, 6, 1, 3]];
+
+const Sound = (() => {
+  let ac = null, master, music, conv, analyser, noiseBuf, layer = null, timer = null, on = false, plate = 0;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[(Math.random() * a.length) | 0];
+  const osc = (type, f) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; return o; };
+  const amp = v => { const g = ac.createGain(); g.gain.value = v; return g; };
+  const biq = (type, f, q) => { const b = ac.createBiquadFilter(); b.type = type; b.frequency.value = f; if (q) b.Q.value = q; return b; };
+  const noise = () => { const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.loopStart = Math.random() * 3; return s; };
+  const once = (srcs, t0, t1) => srcs.forEach(s => { s.start(t0); s.stop(t1); s.onended = () => s.disconnect(); });
+  const freqOf = (cfg, deg, oct) => {
+    const n = cfg.scale.length, d = ((deg % n) + n) % n;
+    return cfg.root * Math.pow(2, (cfg.scale[d] + 12 * Math.floor(deg / n)) / 12 + oct);
+  };
+
+  function init() {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    const sr = ac.sampleRate;
+    noiseBuf = ac.createBuffer(1, sr * 4, sr);
+    const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+
+    master = amp(0);
+    const comp = ac.createDynamicsCompressor(); comp.threshold.value = -20; comp.ratio.value = 3;
+    analyser = ac.createAnalyser(); analyser.fftSize = 64; analyser.smoothingTimeConstant = .8;
+    master.connect(comp); comp.connect(analyser); analyser.connect(ac.destination);
+
+    // a large, dark hall
+    conv = ac.createConvolver();
+    const len = sr * 6, ir = ac.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    conv.buffer = ir;
+    const wet = amp(.5), dry = amp(.65), irLp = biq("lowpass", 3200);
+    conv.connect(irLp).connect(wet).connect(master); dry.connect(master);
+
+    // music bus through a worn tape machine: wow, flutter, rolled-off highs
+    music = amp(1);
+    const tape = ac.createDelay(.1); tape.delayTime.value = .03;
+    const wow = osc("sine", .31), wowD = amp(.0019); wow.connect(wowD).connect(tape.delayTime); wow.start();
+    const flut = osc("sine", 5.6), flutD = amp(.00011); flut.connect(flutD).connect(tape.delayTime); flut.start();
+    const warm = biq("lowpass", 5200);
+    music.connect(tape).connect(warm); warm.connect(dry); warm.connect(conv);
+
+    // tape hiss underneath everything
+    const hiss = noise(), hg = amp(.009);
+    hiss.connect(biq("highpass", 1800)).connect(biq("lowpass", 7000)).connect(hg).connect(master); hiss.start();
+  }
+
+  /* --- one-shot instruments --- */
+  function bell(dest, t, f, g, decay = 4, ratio = 3.5) {
+    const c = osc("sine", f), m = osc("sine", f * ratio), mg = amp(0), e = amp(0);
+    mg.gain.setValueAtTime(f * 2.2, t); mg.gain.exponentialRampToValueAtTime(f * .05, t + decay * .5);
+    m.connect(mg).connect(c.frequency);
+    e.gain.setValueAtTime(.0001, t); e.gain.linearRampToValueAtTime(g, t + .006); e.gain.exponentialRampToValueAtTime(.0001, t + decay);
+    c.connect(e).connect(dest); once([c, m], t, t + decay + .1);
+  }
+  function musicbox(dest, t, f, g) {
+    const det = rnd(-28, 28), a = osc("triangle", f), b = osc("sine", f * 2), bg = amp(.3), e = amp(0);
+    a.detune.value = det; b.detune.value = det;
+    e.gain.setValueAtTime(.0001, t); e.gain.linearRampToValueAtTime(g, t + .004); e.gain.exponentialRampToValueAtTime(.0001, t + 1.8);
+    a.connect(e); b.connect(bg).connect(e); e.connect(dest); once([a, b], t, t + 1.9);
+  }
+  function swell(dest, t, f, g) {          // sounds like a note played backwards
+    const a = osc("sine", f), b = osc("triangle", f * 1.002), e = amp(0), lp = biq("lowpass", 1600);
+    e.gain.setValueAtTime(.0001, t); e.gain.exponentialRampToValueAtTime(g, t + 2.6); e.gain.linearRampToValueAtTime(.0001, t + 2.9);
+    a.connect(e); b.connect(e); e.connect(lp).connect(dest); once([a, b], t, t + 3);
+  }
+  function pulse(dest, t, f, g) {
+    const a = osc("sine", f), e = amp(0);
+    e.gain.setValueAtTime(.0001, t); e.gain.linearRampToValueAtTime(g, t + .003); e.gain.exponentialRampToValueAtTime(.0001, t + .7);
+    a.connect(e).connect(dest); once([a], t, t + .75);
+  }
+  function distant(dest, t, f, g) {         // a chime from a floor you can't reach
+    const lp = biq("lowpass", 650); lp.connect(dest);
+    [[f, 0], [f * .8, .62]].forEach(([fr, dt]) => {
+      const a = osc("sine", fr), b = osc("triangle", fr * 2), e = amp(0), t0 = t + dt;
+      e.gain.setValueAtTime(.0001, t0); e.gain.linearRampToValueAtTime(g, t0 + .01); e.gain.exponentialRampToValueAtTime(.0001, t0 + 2.2);
+      a.connect(e); b.connect(e); e.connect(lp); once([a, b], t0, t0 + 2.3);
+    });
+  }
+  function foghorn(dest, t, f, g) {
+    const a = osc("sawtooth", f), b = osc("sawtooth", f * 1.006), lp = biq("lowpass", 240, 2), e = amp(0);
+    e.gain.setValueAtTime(.0001, t); e.gain.linearRampToValueAtTime(g, t + .8);
+    e.gain.setValueAtTime(g, t + 3); e.gain.linearRampToValueAtTime(.0001, t + 4.8);
+    a.connect(lp); b.connect(lp); lp.connect(e).connect(dest); once([a, b], t, t + 5);
+  }
+  function wave(dest, t, g) {
+    const n = noise(), lp = biq("lowpass", 300), e = amp(0);
+    lp.frequency.setValueAtTime(300, t); lp.frequency.linearRampToValueAtTime(1300, t + 2.6); lp.frequency.linearRampToValueAtTime(250, t + 7);
+    e.gain.setValueAtTime(.0001, t); e.gain.linearRampToValueAtTime(g, t + 2.6); e.gain.linearRampToValueAtTime(.0001, t + 7);
+    n.connect(lp).connect(e).connect(dest); once([n], t, t + 7.1);
+  }
+  function tick(dest, t, g, hi) {
+    const n = noise(), bp = biq("bandpass", hi ? 2800 : 1900, 6), e = amp(0);
+    e.gain.setValueAtTime(g, t); e.gain.exponentialRampToValueAtTime(.0001, t + .03);
+    n.connect(bp).connect(e).connect(dest); once([n], t, t + .04);
+  }
+  function cricket(dest, t, g) {
+    const f = rnd(4200, 4700);
+    for (let k = 0; k < 3; k++) {
+      const a = osc("sine", f), e = amp(0), t0 = t + k * .075;
+      e.gain.setValueAtTime(.0001, t0); e.gain.linearRampToValueAtTime(g, t0 + .01); e.gain.linearRampToValueAtTime(.0001, t0 + .045);
+      a.connect(e).connect(dest); once([a], t0, t0 + .05);
+    }
+  }
+  function crackle(t) {
+    const n = noise(), hp = biq("highpass", 1200), e = amp(0);
+    e.gain.setValueAtTime(rnd(.02, .07), t); e.gain.exponentialRampToValueAtTime(.0001, t + .006);
+    n.connect(hp).connect(e).connect(master); once([n], t, t + .01);
+  }
+
+  /* --- a plate's movement: pad + textures + scheduled events --- */
+  function makeLayer(i) {
+    const cfg = SOUNDS[i % SOUNDS.length], now = ac.currentTime;
+    const L = { cfg, out: amp(0), srcs: [], next: {}, chord: 0, nextChord: now, voices: [], wander: now };
+    L.out.connect(music);
+    L.out.gain.setTargetAtTime(1, now, 1.4);
+
+    const padF = biq("lowpass", cfg.cutoff, .6), padG = amp(cfg.padGain);
+    padF.connect(padG).connect(L.out);
+    const pl = osc("sine", rnd(.04, .08)), plg = amp(cfg.cutoff * .35);
+    pl.connect(plg).connect(padF.frequency); L.srcs.push(pl);
+    for (let v = 0; v < 4; v++) for (const s of [-1, 1]) {
+      const o = osc(cfg.wave, cfg.root); o.detune.value = s * cfg.detune + rnd(-2, 2);
+      o.connect(amp(.11)).connect(padF); L.voices.push({ o, v }); L.srcs.push(o);
+    }
+    if (cfg.textures.includes("hum")) {
+      const h = osc("sawtooth", 120), h2 = osc("sine", 60), hl = biq("lowpass", 700), hg = amp(.022);
+      h.connect(hl).connect(hg).connect(L.out); h2.connect(amp(.035)).connect(L.out);
+      L.hum = hg; L.srcs.push(h, h2);
+    }
+    if (cfg.textures.includes("wind")) {
+      const n = noise(), bp = biq("bandpass", 600, 1.4), wg = amp(.08);
+      n.connect(bp).connect(wg).connect(L.out); L.wind = { bp, wg }; L.srcs.push(n);
+    }
+    if (cfg.textures.includes("shepard")) {
+      const sg = amp(.16), lp = biq("lowpass", 2600); sg.connect(lp).connect(L.out);
+      L.shep = { phase: 0, last: now, N: 7, base: cfg.root / 2, parts: [] };
+      for (let k = 0; k < 7; k++) { const o = osc("sine", 100), g = amp(0); o.connect(g).connect(sg); L.shep.parts.push({ o, g }); L.srcs.push(o); }
+    }
+    L.srcs.forEach(s => s.start(now));
+    return L;
+  }
+
+  function retire(L) {
+    const now = ac.currentTime;
+    L.out.gain.cancelScheduledValues(now);
+    L.out.gain.setTargetAtTime(0, now, 1.1);
+    setTimeout(() => { L.srcs.forEach(s => { try { s.stop(); } catch (e) {} }); L.out.disconnect(); }, 6000);
+  }
+
+  function play(ev, L, t) {
+    const cfg = L.cfg, chord = PROGRESSION[L.chord % PROGRESSION.length];
+    const deg = Math.random() < .6 ? pick(chord) : (Math.random() * cfg.scale.length) | 0;
+    const f = ev.oct ? freqOf(cfg, deg, ev.oct[0] + ((Math.random() * (ev.oct[1] - ev.oct[0] + 1)) | 0)) : 0;
+    const d = L.out;
+    switch (ev.kind) {
+      case "bell": bell(d, t, f, ev.gain); break;
+      case "temple": bell(d, t, f, ev.gain, 10, 1.41); break;
+      case "musicbox": musicbox(d, t, f, ev.gain); break;
+      case "swell": swell(d, t, f, ev.gain); break;
+      case "pulse": pulse(d, t, f, ev.gain); break;
+      case "distant": distant(d, t, f, ev.gain); break;
+      case "foghorn": foghorn(d, t, f, ev.gain); break;
+      case "wave": wave(d, t, ev.gain); break;
+      case "cricket": cricket(d, t, ev.gain); break;
+      case "tick": L.tock = !L.tock; tick(d, t, ev.gain, L.tock); break;
+    }
+  }
+
+  function step() {
+    const L = layer; if (!L || !on) return;
+    const now = ac.currentTime, cfg = L.cfg;
+    if (now >= L.nextChord) {                    // glide the pad to the next chord
+      const chord = PROGRESSION[L.chord % PROGRESSION.length];
+      L.voices.forEach(({ o, v }) => o.frequency.setTargetAtTime(freqOf(cfg, chord[v], v === 0 ? 0 : 1), now, 2.2));
+      L.chord++; L.nextChord = now + cfg.chordLen;
+    }
+    for (const ev of cfg.events) {
+      let n = L.next[ev.kind] ?? now + rnd(.3, Math.min(3, ev.every[1]));
+      while (n < now + .3) { if (n >= now - .05) play(ev, L, Math.max(n, now)); n += rnd(ev.every[0], ev.every[1]); }
+      L.next[ev.kind] = n;
+    }
+    if (L.hum && Math.random() < .02) {          // the ballast stutters
+      L.hum.gain.setValueAtTime(.004, now); L.hum.gain.setTargetAtTime(.022, now + .09, .05);
+    }
+    if (L.wind && now > L.wander) {
+      L.wind.bp.frequency.setTargetAtTime(rnd(250, 1100), now, 1.6);
+      L.wind.wg.gain.setTargetAtTime(rnd(.03, .13), now, 1.8);
+      L.wander = now + rnd(1.5, 3.5);
+    }
+    if (L.shep) {                                // always rising, never arriving
+      const S = L.shep; S.phase = (S.phase + (now - S.last) * .022) % 1; S.last = now;
+      S.parts.forEach(({ o, g }, k) => {
+        const oct = k + S.phase;
+        o.frequency.setTargetAtTime(S.base * Math.pow(2, oct), now, .04);
+        g.gain.setTargetAtTime(.22 * Math.exp(-((oct - S.N / 2) ** 2) / 2.6), now, .04);
+      });
+    }
+    if (Math.random() < .045) crackle(now + rnd(0, .1));
+  }
+
+  function meterText() {
+    if (!analyser) return "";
+    const d = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(d);
+    const chars = " .:-=+*#", bands = [1, 2, 3, 5, 8, 12];
+    return bands.map(b => chars[Math.min(7, (d[b] / 255 * 9) | 0)]).join("");
+  }
+
+  return {
+    get on() { return on; },
+    get running() { return !!ac && ac.state === "running"; },
+    unlock() { if (ac && on && ac.state !== "running") ac.resume().catch(() => {}); },
+    meter: meterText,
+    desc: () => SOUNDS[plate % SOUNDS.length].desc,
+    setPlate(i) {
+      plate = i;
+      if (!on || !ac) return;
+      if (layer) retire(layer);
+      layer = makeLayer(i);
+    },
+    start() {
+      if (!ac) init();
+      on = true;
+      if (ac.state !== "running") ac.resume().catch(() => {});
+      master.gain.cancelScheduledValues(ac.currentTime);
+      master.gain.setTargetAtTime(2.1, ac.currentTime, .8);
+      if (!layer) layer = makeLayer(plate);
+      if (!timer) timer = setInterval(step, 100);
+      step();
+    },
+    stop() {
+      on = false;
+      if (!ac) return;
+      master.gain.setTargetAtTime(0, ac.currentTime, .3);
+      clearInterval(timer); timer = null;
+      const L = layer; layer = null;
+      setTimeout(() => { if (L && !on) retire(L); if (!on) ac.suspend(); }, 1500);
+    },
+    suspend() { if (ac && on) ac.suspend(); },
+    resume() { if (ac && on) ac.resume(); },
+  };
+})();
+
+/* ---------- ui ---------- */
+const $ = id => document.getElementById(id);
+const idx = $("index");
+SCENES.forEach((s, i) => {
+  const b = document.createElement("button");
+  b.textContent = ROMAN[i]; b.title = s.title; b.setAttribute("aria-label", `Plate ${ROMAN[i]}: ${s.title}`);
+  b.addEventListener("click", () => go(i));
+  idx.appendChild(b);
+});
+$("tot").textContent = String(SCENES.length).padStart(2, "0");
+
+function go(n, fromHash) {
+  n = ((n % SCENES.length) + SCENES.length) % SCENES.length;
+  trans = { start: performance.now(), from: bgNow };
+  cur = n;
+  const s = SCENES[n];
+  document.documentElement.style.setProperty("--bg", s.bg);
+  document.documentElement.style.setProperty("--fg", s.fg);
+  document.body.classList.toggle("full", s.layout === "full");
+  $("num").textContent = String(n + 1).padStart(2, "0");
+  $("plate").textContent = `Plate ${ROMAN[n]}`;
+  $("title").textContent = s.title;
+  $("note").textContent = s.note;
+  [...idx.children].forEach((b, i) => b.setAttribute("aria-current", i === n ? "true" : "false"));
+  // keep a shareable #plate link; sandboxed previews and some embeds forbid this, so fail quietly
+  if (!fromHash && location.hash !== `#${n + 1}`) { try { history.replaceState(null, "", `#${n + 1}`); } catch (e) {} }
+  Sound.setPlate(n);
+  updateSoundButton();
+  layout();
+}
+
+/* sound: on by default. Browsers only let audio start after the visitor's first
+   click, tap or key press, so until then the button says so and any gesture starts it. */
+const sndBtn = $("snd");
+let meterRaf = 0;
+function updateSoundButton() {
+  const waiting = Sound.on && !Sound.running;
+  sndBtn.setAttribute("aria-pressed", Sound.on ? "true" : "false");
+  sndBtn.title = !Sound.on ? "Play the soundtrack (M)" : waiting ? "Click or tap anywhere to start the soundtrack" : `Now playing: ${Sound.desc()} (M to mute)`;
+  const narrow = innerWidth < 640;
+  if (!Sound.on) sndBtn.textContent = narrow ? "[ off ]" : "[ sound off ]";
+  else if (waiting) sndBtn.textContent = narrow ? "[ tap ]" : "[ click for sound ]";
+}
+function meterLoop() {
+  if (!Sound.on) { meterRaf = 0; updateSoundButton(); return; }
+  if (Sound.running) sndBtn.textContent = `[ ${Sound.meter()} ]`;
+  else updateSoundButton();
+  meterRaf = setTimeout(() => requestAnimationFrame(meterLoop), 90);
+}
+const savePref = v => { try { localStorage.setItem("archive-sound", v ? "on" : "off"); } catch (e) {} };
+function soundOn() { Sound.start(); updateSoundButton(); if (!meterRaf) meterLoop(); }
+function toggleSound() {
+  if (Sound.on && !Sound.running) { Sound.unlock(); return; }      // waiting: this gesture starts it
+  if (Sound.on) { Sound.stop(); savePref(false); updateSoundButton(); return; }
+  soundOn(); savePref(true);
+}
+sndBtn.addEventListener("click", e => { e.stopPropagation(); toggleSound(); });
+document.addEventListener("visibilitychange", () => document.hidden ? Sound.suspend() : Sound.resume());
+const unlockOnGesture = e => {
+  if (e.target === sndBtn || (e.key && e.key.toLowerCase() === "m")) return;
+  Sound.unlock();
+};
+["pointerdown", "keydown", "touchend", "click"].forEach(ev => addEventListener(ev, unlockOnGesture, true));
+
+/* fullscreen: works standalone, and also when this page is opened inside
+   the Prak.fun "crack" overlay (then the overlay is what goes fullscreen) */
+const fsBtn = $("fs");
+const topDoc = (() => { try { return window.top.document; } catch (e) { return document; } })();
+const fsTarget = () => {
+  try { if (window.frameElement) return window.frameElement.closest("[data-fs-host]") || window.frameElement; } catch (e) {}
+  return document.documentElement;
+};
+const fsSupported = !!(topDoc.fullscreenEnabled || topDoc.webkitFullscreenEnabled);
+const isFs = () => !!(topDoc.fullscreenElement || topDoc.webkitFullscreenElement);
+const quiet = p => { if (p && p.catch) p.catch(() => {}); };
+function enterFs() {
+  const el = fsTarget(), fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (fn) try { quiet(fn.call(el)); } catch (e) {}
+}
+function exitFs() {
+  const fn = topDoc.exitFullscreen || topDoc.webkitExitFullscreen;
+  if (fn) try { quiet(fn.call(topDoc)); } catch (e) {}
+}
+const toggleFs = () => isFs() ? exitFs() : enterFs();
+function updateFsButton() {
+  fsBtn.textContent = isFs() ? "[ exit ]" : "[ full ]";
+  fsBtn.title = isFs() ? "Exit fullscreen (F or Esc)" : "Fullscreen (F)";
+}
+if (fsSupported) {
+  fsBtn.hidden = false;
+  fsBtn.addEventListener("click", e => { e.stopPropagation(); toggleFs(); });
+  ["fullscreenchange", "webkitfullscreenchange"].forEach(ev => {
+    topDoc.addEventListener(ev, updateFsButton);
+    if (topDoc !== document) document.addEventListener(ev, updateFsButton);
+  });
+  updateFsButton();
+  // "auto" fullscreen: browsers only allow it from a click/tap/key, so the first one enters it
+  let autoTried = false;
+  const autoFs = e => {
+    if (autoTried) return;
+    if (e.target === fsBtn || (e.key && (e.key.toLowerCase() === "f" || e.key === "Escape"))) { autoTried = true; return; }
+    autoTried = true;
+    if (!isFs()) enterFs();
+  };
+  ["pointerdown", "keydown"].forEach(ev => addEventListener(ev, autoFs, true));
+}
+
+/* zoom control */
+const zOut = $("zout"), zIn = $("zin"), zVal = $("zval");
+function updateZoomUI() {
+  zVal.textContent = `${Math.round(ZOOMS[zoomIdx] * 100)}%`;
+  zIn.disabled = zoomIdx === 0;
+  zOut.disabled = zoomIdx === ZOOMS.length - 1 || zoomCapped;
+  zOut.title = zOut.disabled && zoomCapped ? "This plate is at its finest detail" : "Zoom out — more detail (−)";
+}
+function setZoom(i) {
+  i = clamp(i, 0, ZOOMS.length - 1);
+  if (i === zoomIdx || (i > zoomIdx && zoomCapped)) return;
+  zoomIdx = i;
+  try { localStorage.setItem("archive-zoom", String(i)); } catch (e) {}
+  trans = { start: performance.now() - 250, from: bgNow };
+  layout();
+}
+zOut.addEventListener("click", e => { e.stopPropagation(); setZoom(zoomIdx + 1); });
+zIn.addEventListener("click", e => { e.stopPropagation(); setZoom(zoomIdx - 1); });
+zVal.addEventListener("click", e => { e.stopPropagation(); setZoom(2); });
+let wheelAcc = 0, wheelT = 0;
+addEventListener("wheel", e => {
+  if (e.ctrlKey) return;                         // leave browser pinch/ctrl-zoom alone
+  wheelAcc += e.deltaY;
+  if (Math.abs(wheelAcc) > 120 && performance.now() - wheelT > 250) {
+    setZoom(zoomIdx + (wheelAcc > 0 ? 1 : -1)); wheelAcc = 0; wheelT = performance.now();
+  }
+}, { passive: true });
+
+$("prev").addEventListener("click", () => go(cur - 1));
+$("next").addEventListener("click", () => go(cur + 1));
+addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); go(cur + 1); }
+  else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(cur - 1); }
+  else if (/^[1-9]$/.test(e.key) && +e.key <= SCENES.length) go(+e.key - 1);
+  else if (e.key === "m" || e.key === "M") toggleSound();
+  else if (e.key === "-" || e.key === "_") setZoom(zoomIdx + 1);
+  else if (e.key === "=" || e.key === "+") setZoom(zoomIdx - 1);
+  else if (e.key === "0") setZoom(2);
+  else if ((e.key === "f" || e.key === "F") && fsSupported) toggleFs();
+});
+let tx = null, ty = null;
+addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+addEventListener("touchend", e => {
+  if (tx === null) return;
+  const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(cur + (dx < 0 ? 1 : -1));
+  tx = null;
+}, { passive: true });
+addEventListener("hashchange", () => { const n = parseInt(location.hash.slice(1), 10); if (n >= 1 && n <= SCENES.length && n - 1 !== cur) go(n - 1, true); });
+
+let resizeT;
+addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(layout, 120); });
+
+let idleT;
+const wake = () => { document.body.classList.remove("idle"); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add("idle"), 4000); };
+["mousemove", "keydown", "touchstart", "click"].forEach(ev => addEventListener(ev, wake, { passive: true }));
+
+/* ---------- start ---------- */
+const start = () => {
+  const n = parseInt(location.hash.slice(1), 10);
+  go(n >= 1 && n <= SCENES.length ? n - 1 : 0, true);
+  wake();
+  let pref = null;
+  try { pref = localStorage.getItem("archive-sound"); } catch (e) {}
+  if (pref !== "off") soundOn();
+  const hint = $("hint");
+  setTimeout(() => hint.classList.add("show"), 600);
+  setTimeout(() => hint.classList.remove("show"), 3600);
+  requestAnimationFrame(loop);
+};
+Promise.race([
+  document.fonts ? document.fonts.load(`12px "IBM Plex Mono"`) : Promise.resolve(),
+  new Promise(r => setTimeout(r, 1500)),
+]).then(start, start);
+})();
+</script>
+</body>
+</html>
