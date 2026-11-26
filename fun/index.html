@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prak.fun</title>
+<meta name="description" content="Small games, built from scratch by Prakshab.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0c;
+    --fg: #e8e6df;
+    --dim: #6f6c63;
+    --accent: #7cfc9a;
+    --card: #151512;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f4f1e8;
+      --fg: #1b1a17;
+      --dim: #8a8578;
+      --accent: #1f7a3a;
+      --card: #ebe7dc;
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--fg); }
+  body {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 56px 16px 32px;
+  }
+  a { color: inherit; }
+
+  /* ---------- header ---------- */
+  header { text-align: center; margin-bottom: 48px; max-width: 100%; }
+  #logo {
+    font-family: inherit;
+    font-size: clamp(7px, 2.4vw, 22px);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--accent);
+    display: inline-block;
+    text-align: left;
+    white-space: pre;
+    user-select: none;
+  }
+  .tag { margin-top: 20px; color: var(--dim); }
+  .cursor { animation: blink 1s steps(1) infinite; color: var(--accent); }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .status {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--dim);
+  }
+  .status b { color: var(--fg); font-weight: 400; }
+
+  /* ---------- grid ---------- */
+  main { width: 100%; max-width: 960px; }
+  .divider {
+    color: var(--dim);
+    overflow: hidden;
+    white-space: nowrap;
+    margin-bottom: 24px;
+    user-select: none;
+  }
+  #grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px;
+    background: var(--card);
+    border: 1px dashed var(--dim);
+    text-decoration: none;
+    transition: transform .15s ease, border-color .15s ease;
+    cursor: pointer;
+  }
+  /* "+" corners so every card looks hand-drawn in ASCII */
+  .card::before, .card::after {
+    content: "+";
+    position: absolute;
+    color: var(--dim);
+    line-height: 1;
+    font-size: 14px;
+  }
+  .card::before { top: -8px; left: -5px; }
+  .card::after  { bottom: -8px; right: -5px; }
+
+  .card:hover, .card:focus-visible {
+    transform: translate(-3px, -3px);
+    border-color: var(--accent);
+    border-style: solid;
+    box-shadow: 3px 3px 0 var(--accent);
+    outline: none;
+  }
+  .card:hover::before, .card:hover::after { color: var(--accent); }
+
+  .icon {
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.2;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .card h2 { font-size: 16px; font-weight: 700; }
+  .card p { font-size: 13px; color: var(--dim); flex: 1; }
+  .badge { font-size: 12px; color: var(--dim); }
+  .card:hover .badge { color: var(--accent); }
+
+  .soon .icon { opacity: .55; }
+  .shake { animation: shake .3s; }
+  @keyframes shake {
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: 64px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--dim);
+  }
+  footer a { color: var(--fg); text-decoration: none; border-bottom: 1px dashed var(--dim); }
+  footer a:hover { color: var(--accent); border-color: var(--accent); }
+  footer p + p { margin-top: 6px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cursor { animation: none; }
+    .card { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <pre id="logo" aria-label="Prak.fun"></pre>
+  <p class="tag">&gt; small games, built from scratch<span class="cursor">_</span></p>
+  <p class="status" id="status"></p>
+</header>
+
+<main>
+  <div class="divider" aria-hidden="true">=================================================================================================================================</div>
+  <div id="grid"></div>
+</main>
+
+<footer>
+  <p><a href="/">&lt;- back to prakshab's site</a></p>
+  <p>made with plain html and way too many # characters</p>
+</footer>
+
+<script>
+  /* ============================================================
+     GAMES — add a new game here. Set status: "live" and an href
+     once it's built (e.g. href: "snake/").
+     ============================================================ */
+  const GAMES = [
+    {
+      title: "snake",
+      desc: "the classic. eat the *, don't eat yourself.",
+      status: "live",
+      href: "snake/",
+      icon:
+`+---------+
+| ooooo@  |
+| o       |
+| o    *  |
++---------+`
+    },
+    {
+      title: "minesweeper",
+      desc: "numbers, logic, and one bad click.",
+      status: "live",
+      href: "minesweeper/",
+      icon:
+`+---------+
+| 1 1 2 # |
+| 1 * 2 # |
+| 1 1 2 # |
++---------+`
+    },
+    {
+      title: "game of life",
+      desc: "four rules. infinite chaos. draw a pattern and watch.",
+      status: "live",
+      href: "life/",
+      icon:
+`+---------+
+|  .#.    |
+|  ..#    |
+|  ###    |
++---------+`
+    },
+    {
+      title: "type racer",
+      desc: "how fast can you actually type?",
+      status: "live",
+      href: "typing/",
+      icon:
+`+---------+
+| the qu_ |
+| wpm: 87 |
+|         |
++---------+`
+    },
+    {
+      title: "2048",
+      desc: "slide tiles, merge numbers, lose an afternoon.",
+      status: "live",
+      href: "2048/",
+      icon:
+`+---------+
+| 2  4  8 |
+|   16 32 |
+| 2048    |
++---------+`
+    },
+    {
+      title: "???",
+      desc: "something new is being built here.",
+      status: "soon",
+      href: "#",
+      icon:
+`+---------+
+|   ???   |
+|     ?   |
+|    .    |
++---------+`
+    }
+  ];
+
+  /* ---------- logo: block letters built from a tiny pixel font ---------- */
+  // figlet "standard"-style letters — plain ASCII only, so every
+  // monospace font lines them up perfectly
+  const GLYPHS = {
+    P: [" ____  ", "|  _ \\ ", "| |_) |", "|  __/ ", "|_|    "],
+    R: [" ____  ", "|  _ \\ ", "| |_) |", "|  _ < ", "|_| \\_\\"],
+    A: ["    _    ", "   / \\   ", "  / _ \\  ", " / ___ \\ ", "/_/   \\_\\"],
+    K: [" _  __", "| |/ /", "| ' / ", "| . \\ ", "|_|\\_\\"],
+    ".": ["   ", "   ", "   ", " _ ", "(_)"],
+    F: [" _____ ", "|  ___|", "| |_   ", "|  _|  ", "|_|    "],
+    U: [" _   _ ", "| | | |", "| | | |", "| |_| |", " \\___/ "],
+    N: [" _   _ ", "| \\ | |", "|  \\| |", "| |\\  |", "|_| \\_|"]
+  };
+  const WORD = "PRAK.FUN";
+
+  function buildLogo() {
+    const rows = ["", "", "", "", ""];
+    for (const ch of WORD) {
+      const g = GLYPHS[ch];
+      const w = Math.max(...g.map(s => s.length));
+      for (let r = 0; r < 5; r++) rows[r] += g[r].padEnd(w) + " ";
+    }
+    return rows.map(r => r.trimEnd()).join("\n");
+  }
+
+  /* ---------- logo "decode" animation ---------- */
+  const logo = document.getElementById("logo");
+  const finalLogo = buildLogo();
+  const NOISE = "#@%&$*+=?";
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (reduceMotion) {
+    logo.textContent = finalLogo;
+  } else {
+    const lines = finalLogo.split("\n");
+    const width = Math.max(...lines.map(l => l.length));
+    const TOTAL = 40;
+    let frame = 0;
+    (function tick() {
+      frame++;
+      logo.textContent = lines.map(line =>
+        [...line].map((c, i) => {
+          if (c === " ") return c;
+          const revealAt = (i / width) * TOTAL * 0.8 + 4;
+          return frame > revealAt ? c : NOISE[(Math.random() * NOISE.length) | 0];
+        }).join("")
+      ).join("\n");
+      if (frame < TOTAL + 4) requestAnimationFrame(tick);
+      else logo.textContent = finalLogo;
+    })();
+  }
+
+  /* ---------- game cards ---------- */
+  const grid = document.getElementById("grid");
+  GAMES.forEach(game => {
+    const live = game.status === "live";
+    const el = document.createElement(live ? "a" : "div");
+    el.className = "card" + (live ? "" : " soon");
+    el.tabIndex = 0;
+    if (live) el.href = game.href;
+
+    const icon = document.createElement("pre");
+    icon.className = "icon";
+    icon.textContent = game.icon;
+
+    const h2 = document.createElement("h2");
+    h2.textContent = game.title;
+
+    const p = document.createElement("p");
+    p.textContent = game.desc;
+
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = live ? "[ play -> ]" : "[ coming soon ]";
+
+    el.append(icon, h2, p, badge);
+
+    if (!live) {
+      el.addEventListener("click", () => {
+        el.classList.remove("shake");
+        void el.offsetWidth; // restart the animation
+        el.classList.add("shake");
+      });
+    }
+    grid.appendChild(el);
+  });
+
+  /* ---------- status line ---------- */
+  const liveCount = GAMES.filter(g => g.status === "live").length;
+  document.getElementById("status").innerHTML =
+    `<b>${liveCount}</b> playable &middot; <b>${GAMES.length - liveCount}</b> in the workshop`;
+</script>
+</body>
+</html>

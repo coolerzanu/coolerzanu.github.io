@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game of Life · Prak.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0e0e0c;--fg:#e8e6df;--dim:#6f6c63;--accent:#7cfc9a;--card:#151512;--bad:#ff6b6b;--warn:#ffd166}
+  @media (prefers-color-scheme: light){:root{--bg:#f4f1e8;--fg:#1b1a17;--dim:#8a8578;--accent:#1f7a3a;--card:#ebe7dc;--bad:#c0392b;--warn:#b7791f}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--fg)}
+  body{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:15px;line-height:1.5;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 40px}
+  .top{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px;font-size:13px;color:var(--dim)}
+  .top a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--dim)}
+  .top a:hover{color:var(--accent);border-color:var(--accent)}
+  h1{font-size:22px;color:var(--accent);margin-bottom:4px;text-align:center}
+  .sub{color:var(--dim);font-size:13px;text-align:center;margin-bottom:20px}
+  .hud{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:14px;margin-bottom:16px;color:var(--dim)}
+  .hud b{color:var(--fg);font-weight:400}
+  .btns{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:16px}
+  button,select{font:inherit;font-size:13px;background:transparent;color:var(--fg);border:1px dashed var(--dim);padding:6px 12px;cursor:pointer;border-radius:0}
+  select option{background:var(--card);color:var(--fg)}
+  button:hover,button:focus-visible,select:hover,select:focus-visible{border-style:solid;border-color:var(--accent);color:var(--accent);outline:none}
+  button.on{border-style:solid;border-color:var(--accent);color:var(--accent)}
+  .help{margin-top:20px;font-size:12px;color:var(--dim);text-align:center;max-width:560px}
+
+  #c{display:block;border:1px dashed var(--dim);cursor:crosshair;touch-action:none}
+  .speed{font-size:13px;color:var(--dim);display:flex;align-items:center;gap:8px}
+  input[type=range]{accent-color:var(--accent);width:110px}
+</style>
+</head>
+<body>
+<div class="top"><a href="../">&lt;- prak.fun</a><span>life.exe</span></div>
+<h1>game of life</h1>
+<p class="sub">four rules. infinite chaos. draw a pattern and watch.</p>
+<div class="hud"><span>generation <b id="gen">0</b></span><span>alive <b id="pop">0</b></span></div>
+<canvas id="c" aria-label="game of life grid"></canvas>
+<div class="btns">
+  <button id="playBtn">[ play ]</button>
+  <button id="stepBtn">[ step ]</button>
+  <button id="randBtn">[ random ]</button>
+  <button id="clearBtn">[ clear ]</button>
+</div>
+<div class="btns">
+  <select id="preset" aria-label="load a pattern">
+    <option value="">load a pattern...</option>
+    <option value="glider">glider</option>
+    <option value="lwss">spaceship</option>
+    <option value="pulsar">pulsar</option>
+    <option value="gun">glider gun</option>
+    <option value="rpent">r-pentomino</option>
+    <option value="acorn">acorn</option>
+  </select>
+  <label class="speed">speed <input type="range" id="speed" min="1" max="30" value="10"> <span id="speedVal">10</span>/s</label>
+</div>
+<p class="help">click or drag to draw · space play/pause · s step · r random · c clear<br>
+a live cell with 2 or 3 neighbors survives · a dead cell with exactly 3 comes alive · everything else dies</p>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const canvas = $("c"), ctx = canvas.getContext("2d");
+
+  // visible grid + hidden margin so things fly off-screen instead of wrapping back
+  const M = 12;
+  const w0 = Math.min(document.documentElement.clientWidth - 32, 720);
+  const VC = Math.max(36, Math.min(64, Math.floor(w0 / 11)));
+  const VR = VC < 50 ? Math.round(VC * 1.15) : 40;
+  const C = VC + 2 * M, R = VR + 2 * M;
+  let cells = new Uint8Array(C * R), next = new Uint8Array(C * R);
+  let running = false, gen = 0, speed = 10, dirty = true, cs = 10;
+
+  let colors = {};
+  function readColors() {
+    const s = getComputedStyle(document.documentElement);
+    colors = { bg: s.getPropertyValue("--bg").trim(), dim: s.getPropertyValue("--dim").trim(), accent: s.getPropertyValue("--accent").trim() };
+    dirty = true;
+  }
+
+  function sizeCanvas() {
+    const w = Math.min(document.documentElement.clientWidth - 32, 720);
+    cs = Math.max(6, Math.floor(w / VC));
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = cs * VC + "px";
+    canvas.style.height = cs * VR + "px";
+    canvas.width = cs * VC * dpr;
+    canvas.height = cs * VR * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    dirty = true;
+  }
+
+  const idx = (vx, vy) => (vy + M) * C + (vx + M);
+
+  function draw() {
+    ctx.fillStyle = colors.bg;
+    ctx.fillRect(0, 0, cs * VC, cs * VR);
+    const dot = Math.max(1, Math.round(cs / 7));
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = colors.dim;
+    for (let y = 0; y < VR; y++)
+      for (let x = 0; x < VC; x++)
+        if (!cells[idx(x, y)]) ctx.fillRect(x * cs + cs / 2 - dot / 2, y * cs + cs / 2 - dot / 2, dot, dot);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = colors.accent;
+    ctx.font = `700 ${Math.round(cs * 1.05)}px "JetBrains Mono", ui-monospace, monospace`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    let pop = 0;
+    for (let y = 0; y < VR; y++)
+      for (let x = 0; x < VC; x++)
+        if (cells[idx(x, y)]) { pop++; ctx.fillText("#", x * cs + cs / 2, y * cs + cs / 2 + 1); }
+    $("gen").textContent = gen;
+    $("pop").textContent = pop;
+    dirty = false;
+  }
+
+  function step() {
+    for (let y = 1; y < R - 1; y++) {
+      for (let x = 1; x < C - 1; x++) {
+        const i = y * C + x;
+        const n = cells[i - C - 1] + cells[i - C] + cells[i - C + 1] +
+                  cells[i - 1] + cells[i + 1] +
+                  cells[i + C - 1] + cells[i + C] + cells[i + C + 1];
+        next[i] = n === 3 || (n === 2 && cells[i]) ? 1 : 0;
+      }
+    }
+    [cells, next] = [next, cells];
+    gen++; dirty = true;
+  }
+
+  function setPlaying(on) {
+    running = on;
+    $("playBtn").textContent = on ? "[ pause ]" : "[ play ]";
+    $("playBtn").classList.toggle("on", on);
+  }
+
+  function clearAll() { cells.fill(0); gen = 0; dirty = true; }
+
+  function randomize() {
+    clearAll();
+    for (let y = 0; y < VR; y++) for (let x = 0; x < VC; x++) cells[idx(x, y)] = Math.random() < 0.25 ? 1 : 0;
+  }
+
+  const PATTERNS = {
+    glider: [".#.", "..#", "###"],
+    lwss: [".#..#", "#....", "#...#", "####."],
+    pulsar: ["..###...###..", ".............", "#....#.#....#", "#....#.#....#", "#....#.#....#", "..###...###..",
+             ".............", "..###...###..", "#....#.#....#", "#....#.#....#", "#....#.#....#", ".............", "..###...###.."],
+    gun: ["........................#...........", "......................#.#...........",
+          "............##......##............##", "...........#...#....##............##",
+          "##........#.....#...##..............", "##........#...#.##....#.#...........",
+          "..........#.....#.......#...........", "...........#...#....................",
+          "............##......................"],
+    rpent: [".##", "##.", ".#."],
+    acorn: [".#.....", "...#...", "##..###"]
+  };
+
+  function stamp(name) {
+    const p = PATTERNS[name];
+    clearAll();
+    const ph = p.length, pw = p[0].length;
+    const ox = name === "gun" ? Math.max(0, Math.min(1, VC - pw)) : Math.floor((VC - pw) / 2);
+    const oy = name === "gun" ? 1 : Math.floor((VR - ph) / 2);
+    p.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === "#") cells[idx(ox + x, oy + y)] = 1; }));
+  }
+
+  // ---- drawing ----
+  let drawing = false, paint = 1, last = null;
+  function cellAt(e) {
+    const r = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / cs), y = Math.floor((e.clientY - r.top) / cs);
+    return x >= 0 && y >= 0 && x < VC && y < VR ? { x, y } : null;
+  }
+  function line(a, b) {
+    let x0 = a.x, y0 = a.y;
+    const dx = Math.abs(b.x - x0), dy = -Math.abs(b.y - y0), sx = x0 < b.x ? 1 : -1, sy = y0 < b.y ? 1 : -1;
+    let err = dx + dy;
+    for (;;) {
+      cells[idx(x0, y0)] = paint;
+      if (x0 === b.x && y0 === b.y) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+    dirty = true;
+  }
+  canvas.addEventListener("pointerdown", e => {
+    const p = cellAt(e); if (!p) return;
+    canvas.setPointerCapture(e.pointerId);
+    drawing = true; paint = cells[idx(p.x, p.y)] ? 0 : 1; last = p;
+    line(p, p);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    const p = cellAt(e); if (!p) return;
+    line(last, p); last = p;
+  });
+  const stop = () => { drawing = false; };
+  canvas.addEventListener("pointerup", stop);
+  canvas.addEventListener("pointercancel", stop);
+
+  // ---- controls ----
+  $("playBtn").addEventListener("click", () => setPlaying(!running));
+  $("stepBtn").addEventListener("click", () => { setPlaying(false); step(); });
+  $("randBtn").addEventListener("click", randomize);
+  $("clearBtn").addEventListener("click", () => { setPlaying(false); clearAll(); });
+  $("preset").addEventListener("change", e => {
+    if (!e.target.value) return;
+    stamp(e.target.value);
+    e.target.value = "";
+    setPlaying(true);
+  });
+  $("speed").addEventListener("input", e => { speed = +e.target.value; $("speedVal").textContent = speed; });
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    if (e.key === " ") { e.preventDefault(); setPlaying(!running); }
+    else if (e.key === "s") { setPlaying(false); step(); }
+    else if (e.key === "r") randomize();
+    else if (e.key === "c") { setPlaying(false); clearAll(); }
+  });
+
+  // ---- loop ----
+  let acc = 0, lastT = performance.now();
+  function frame(t) {
+    const dt = t - lastT; lastT = t;
+    if (running) {
+      acc += dt;
+      const per = 1000 / speed;
+      let n = 0;
+      while (acc >= per && n < 4) { step(); acc -= per; n++; }
+      if (acc > per * 4) acc = 0;
+    }
+    if (dirty) draw();
+    requestAnimationFrame(frame);
+  }
+
+  readColors();
+  sizeCanvas();
+  window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", readColors);
+  window.addEventListener("resize", sizeCanvas);
+  document.fonts && document.fonts.ready.then(() => { dirty = true; });
+  stamp("gun");
+  setPlaying(true);
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake · Prak.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0e0e0c;--fg:#e8e6df;--dim:#6f6c63;--accent:#7cfc9a;--card:#151512;--bad:#ff6b6b;--warn:#ffd166}
+  @media (prefers-color-scheme: light){:root{--bg:#f4f1e8;--fg:#1b1a17;--dim:#8a8578;--accent:#1f7a3a;--card:#ebe7dc;--bad:#c0392b;--warn:#b7791f}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--fg)}
+  body{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:15px;line-height:1.5;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 40px}
+  .top{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px;font-size:13px;color:var(--dim)}
+  .top a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--dim)}
+  .top a:hover{color:var(--accent);border-color:var(--accent)}
+  h1{font-size:22px;color:var(--accent);margin-bottom:4px;text-align:center}
+  .sub{color:var(--dim);font-size:13px;text-align:center;margin-bottom:20px}
+  .hud{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:14px;margin-bottom:16px;color:var(--dim)}
+  .hud b{color:var(--fg);font-weight:400}
+  .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+  button{font:inherit;font-size:13px;background:transparent;color:var(--fg);border:1px dashed var(--dim);padding:6px 12px;cursor:pointer}
+  button:hover,button:focus-visible{border-style:solid;border-color:var(--accent);color:var(--accent);outline:none}
+  .help{margin-top:20px;font-size:12px;color:var(--dim);text-align:center;max-width:520px}
+  .msg{min-height:1.5em;text-align:center;margin-top:12px;color:var(--accent)}
+  .msg.bad{color:var(--bad)}
+
+  #board{font-family:inherit;font-size:clamp(9px,3.3vw,16px);line-height:1.1;user-select:none;-webkit-user-select:none;touch-action:none}
+  .e{color:var(--dim);opacity:.35}
+  .b{color:var(--accent)}
+  .h{color:var(--fg);font-weight:700}
+  .f{color:var(--warn);font-weight:700}
+  .w{color:var(--dim)}
+  .x{color:var(--bad);font-weight:700}
+  .pad{display:none;grid-template-columns:repeat(3,56px);gap:8px;justify-content:center;margin-top:16px}
+  .pad button{height:44px;font-size:16px}
+  @media (pointer:coarse){.pad{display:grid}}
+</style>
+</head>
+<body>
+<div class="top"><a href="../">&lt;- prak.fun</a><span>snake.exe</span></div>
+<h1>snake</h1>
+<p class="sub">eat the *, don't eat yourself.</p>
+<div class="hud"><span>score <b id="score">0</b></span><span>best <b id="best">0</b></span><span>speed <b id="speed">1</b></span></div>
+<pre id="board" aria-label="snake board"></pre>
+<p class="msg" id="msg"></p>
+<div class="pad" aria-label="direction pad">
+  <span></span><button data-d="up" aria-label="up">^</button><span></span>
+  <button data-d="left" aria-label="left">&lt;</button><button data-d="down" aria-label="down">v</button><button data-d="right" aria-label="right">&gt;</button>
+</div>
+<div class="btns"><button id="startBtn">[ start ]</button></div>
+<p class="help">arrows / wasd to move · space to start or pause · swipe on phones</p>
+
+<script>
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+
+  const W = 20, H = 20;
+  const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+  const OPP = { up: "down", down: "up", left: "right", right: "left" };
+  const $ = id => document.getElementById(id);
+  const board = $("board"), msg = $("msg"), startBtn = $("startBtn");
+
+  let snake, dir, queue, food, score, state, timer;
+  let best = store.get("prak.snake.best", 0);
+  $("best").textContent = best;
+
+  function say(t, bad) { msg.textContent = t; msg.className = "msg" + (bad ? " bad" : ""); }
+  const delay = () => Math.max(55, 140 - score * 4);
+
+  function hud() {
+    $("score").textContent = score;
+    $("speed").textContent = 1 + Math.floor((140 - delay()) / 10);
+  }
+
+  function reset() {
+    clearTimeout(timer);
+    snake = [{ x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }];
+    dir = "right"; queue = []; score = 0; state = "ready";
+    placeFood(); hud(); render();
+    say("press space or [ start ]");
+    startBtn.textContent = "[ start ]";
+  }
+
+  function placeFood() {
+    const free = [];
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (!snake.some(s => s.x === x && s.y === y)) free.push({ x, y });
+    food = free.length ? free[(Math.random() * free.length) | 0] : null;
+  }
+
+  function render(dead) {
+    const g = Array.from({ length: H }, () => Array(W).fill('<span class="e">.</span>'));
+    if (food) g[food.y][food.x] = '<span class="f">*</span>';
+    snake.forEach((s, i) => { g[s.y][s.x] = i === 0 ? '<span class="h">@</span>' : '<span class="b">o</span>'; });
+    if (dead) g[dead.y][dead.x] = '<span class="x">X</span>';
+    const edge = '<span class="w">+' + "-".repeat(W * 2 + 1) + "+</span>";
+    board.innerHTML = [edge, ...g.map(r => '<span class="w">|</span> ' + r.join(" ") + ' <span class="w">|</span>'), edge].join("\n");
+  }
+
+  function step() {
+    if (queue.length) dir = queue.shift();
+    const [dx, dy] = DIRS[dir];
+    const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+    const eating = food && head.x === food.x && head.y === food.y;
+    const body = eating ? snake : snake.slice(0, -1);
+    const out = head.x < 0 || head.y < 0 || head.x >= W || head.y >= H;
+    if (out || body.some(s => s.x === head.x && s.y === head.y)) return die(out ? snake[0] : head);
+
+    snake.unshift(head);
+    if (eating) {
+      score++;
+      placeFood();
+      if (!food) return end("you filled the whole board. legendary.", false);
+    } else snake.pop();
+
+    hud(); render();
+    timer = setTimeout(step, delay());
+  }
+
+  function die(at) { render(at); end("game over — space to try again", true); }
+
+  function end(text, bad) {
+    state = "over"; clearTimeout(timer);
+    if (score > best) { best = score; store.set("prak.snake.best", best); $("best").textContent = best; text += " · new best!"; }
+    say(text, bad);
+    startBtn.textContent = "[ again ]";
+  }
+
+  function start() {
+    if (state === "over") reset();
+    state = "running"; say("");
+    startBtn.textContent = "[ pause ]";
+    timer = setTimeout(step, delay());
+  }
+
+  function pause() {
+    state = "paused"; clearTimeout(timer);
+    say("paused — space to resume");
+    startBtn.textContent = "[ resume ]";
+  }
+
+  function toggle() {
+    if (state === "running") pause();
+    else start();
+  }
+
+  function turn(d) {
+    if (state === "ready" || state === "over" || state === "paused") {
+      if (state !== "paused" && d === OPP[dir]) return;
+      start();
+    }
+    const last = queue.length ? queue[queue.length - 1] : dir;
+    if (d === last || d === OPP[last]) return;
+    if (queue.length < 3) queue.push(d);
+  }
+
+  const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", W: "up", S: "down", A: "left", D: "right" };
+  document.addEventListener("keydown", e => {
+    if (KEYS[e.key]) { e.preventDefault(); turn(KEYS[e.key]); }
+    else if (e.key === " ") { e.preventDefault(); toggle(); }
+  });
+  startBtn.addEventListener("click", () => { toggle(); startBtn.blur(); });
+  document.querySelectorAll(".pad button").forEach(b =>
+    b.addEventListener("pointerdown", e => { e.preventDefault(); turn(b.dataset.d); }));
+
+  let sx = 0, sy = 0;
+  board.addEventListener("touchstart", e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  board.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) { if (state !== "running") start(); return; }
+    turn(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden && state === "running") pause(); });
+
+  reset();
+</script>
+</body>
+</html>

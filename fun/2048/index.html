@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2048 · Prak.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0e0e0c;--fg:#e8e6df;--dim:#6f6c63;--accent:#7cfc9a;--card:#151512;--bad:#ff6b6b;--warn:#ffd166}
+  @media (prefers-color-scheme: light){:root{--bg:#f4f1e8;--fg:#1b1a17;--dim:#8a8578;--accent:#1f7a3a;--card:#ebe7dc;--bad:#c0392b;--warn:#b7791f}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--fg)}
+  body{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:15px;line-height:1.5;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 40px}
+  .top{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px;font-size:13px;color:var(--dim)}
+  .top a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--dim)}
+  .top a:hover{color:var(--accent);border-color:var(--accent)}
+  h1{font-size:22px;color:var(--accent);margin-bottom:4px;text-align:center}
+  .sub{color:var(--dim);font-size:13px;text-align:center;margin-bottom:20px}
+  .hud{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:14px;margin-bottom:16px;color:var(--dim)}
+  .hud b{color:var(--fg);font-weight:400}
+  .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+  button{font:inherit;font-size:13px;background:transparent;color:var(--fg);border:1px dashed var(--dim);padding:6px 12px;cursor:pointer}
+  button:hover,button:focus-visible{border-style:solid;border-color:var(--accent);color:var(--accent);outline:none}
+  button:disabled{opacity:.4;cursor:default;border-style:dashed;border-color:var(--dim);color:var(--fg)}
+  .help{margin-top:20px;font-size:12px;color:var(--dim);text-align:center;max-width:520px}
+  .msg{min-height:1.5em;text-align:center;margin-top:12px;color:var(--accent)}
+  .msg.bad{color:var(--bad)}
+
+  #board{--size:min(380px,calc(100vw - 32px));width:var(--size);height:var(--size);display:grid;
+         grid-template-columns:repeat(4,1fr);gap:8px;touch-action:none;user-select:none;-webkit-user-select:none}
+  .tile{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(var(--size) / 9.5);
+        border:1px dashed color-mix(in srgb,var(--dim) 55%,transparent);color:color-mix(in srgb,var(--dim) 45%,transparent)}
+  .tile.v{--p:calc(var(--l) * 100%);border-style:solid;
+          border-color:color-mix(in srgb,var(--accent) var(--p),var(--dim));
+          color:color-mix(in srgb,var(--accent) var(--p),var(--fg));
+          background:color-mix(in srgb,var(--accent) calc(var(--l) * 22%),var(--card))}
+  .tile.big{box-shadow:0 0 18px color-mix(in srgb,var(--accent) 45%,transparent)}
+  .tile[data-len="3"]{font-size:calc(var(--size) / 12)}
+  .tile[data-len="4"]{font-size:calc(var(--size) / 15)}
+  .tile[data-len="5"]{font-size:calc(var(--size) / 19)}
+  .pop{animation:pop .16s ease-out}
+  .bump{animation:bump .16s ease-out}
+  @keyframes pop{from{transform:scale(.5);opacity:0}}
+  @keyframes bump{50%{transform:scale(1.12)}}
+  @media (prefers-reduced-motion: reduce){.pop,.bump{animation:none}}
+</style>
+</head>
+<body>
+<div class="top"><a href="../">&lt;- prak.fun</a><span>2048.exe</span></div>
+<h1>2048</h1>
+<p class="sub">slide tiles, merge numbers, lose an afternoon.</p>
+<div class="hud"><span>score <b id="score">0</b></span><span>best <b id="best">0</b></span></div>
+<div id="board" aria-label="2048 board"></div>
+<p class="msg" id="msg"></p>
+<div class="btns"><button id="newBtn">[ new game ]</button><button id="undoBtn">[ undo ]</button></div>
+<p class="help">arrows / wasd to slide · swipe on phones · u to undo one move · n for a new game</p>
+
+<script>
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const $ = id => document.getElementById(id);
+  const boardEl = $("board");
+
+  let grid, score, won, over, prev = null;
+  let best = store.get("prak.2048.best", 0);
+
+  const els = [];
+  for (let i = 0; i < 16; i++) { const d = document.createElement("div"); boardEl.appendChild(d); els.push(d); }
+
+  function say(t, bad) { $("msg").textContent = t; $("msg").className = "msg" + (bad ? " bad" : ""); }
+
+  function addTile() {
+    const e = [];
+    grid.forEach((v, i) => { if (!v) e.push(i); });
+    if (!e.length) return -1;
+    const i = e[(Math.random() * e.length) | 0];
+    grid[i] = Math.random() < 0.9 ? 2 : 4;
+    return i;
+  }
+
+  function newGame() {
+    grid = Array(16).fill(0); score = 0; won = false; over = false; prev = null;
+    const a = addTile(), b = addTile();
+    say(""); render([a, b], []); save();
+  }
+
+  function lineIdx(dir, k) {
+    const out = [];
+    for (let j = 0; j < 4; j++) {
+      if (dir === "left") out.push(k * 4 + j);
+      else if (dir === "right") out.push(k * 4 + 3 - j);
+      else if (dir === "up") out.push(j * 4 + k);
+      else out.push((3 - j) * 4 + k);
+    }
+    return out;
+  }
+
+  function canMove() {
+    for (let i = 0; i < 16; i++) {
+      if (!grid[i]) return true;
+      if (i % 4 < 3 && grid[i] === grid[i + 1]) return true;
+      if (i < 12 && grid[i] === grid[i + 4]) return true;
+    }
+    return false;
+  }
+
+  function move(dir) {
+    if (over) return;
+    const before = grid.slice(), beforeScore = score, beforeWon = won;
+    const merged = [];
+    let moved = false;
+    for (let k = 0; k < 4; k++) {
+      const idx = lineIdx(dir, k);
+      const vals = idx.map(i => grid[i]).filter(Boolean);
+      const res = [], mpos = [];
+      for (let p = 0; p < vals.length; p++) {
+        if (p + 1 < vals.length && vals[p] === vals[p + 1]) {
+          res.push(vals[p] * 2); score += vals[p] * 2; mpos.push(res.length - 1); p++;
+        } else res.push(vals[p]);
+      }
+      while (res.length < 4) res.push(0);
+      idx.forEach((i, q) => { if (grid[i] !== res[q]) moved = true; grid[i] = res[q]; });
+      mpos.forEach(q => merged.push(idx[q]));
+    }
+    if (!moved) return;
+    prev = { grid: before, score: beforeScore, won: beforeWon };
+    const t = addTile();
+    if (score > best) { best = score; store.set("prak.2048.best", best); }
+    say("");
+    if (!won && grid.includes(2048)) { won = true; say("2048! you did it. keep going for 4096?"); }
+    if (!canMove()) { over = true; say("no moves left — [ undo ] or [ new game ]", true); }
+    render([t], merged); save();
+  }
+
+  function undo() {
+    if (!prev) return;
+    grid = prev.grid; score = prev.score; won = prev.won; over = false; prev = null;
+    say(""); render([], []); save();
+  }
+
+  function render(fresh, merged) {
+    els.forEach((el, i) => {
+      const v = grid[i];
+      el.className = "tile";
+      void el.offsetWidth;
+      let cls = "tile";
+      if (v) {
+        const l = Math.log2(v);
+        cls += " v" + (v >= 512 ? " big" : "");
+        el.style.setProperty("--l", Math.min(1, (l - 1) / 10).toFixed(3));
+        el.dataset.len = String(v).length;
+      } else {
+        el.style.removeProperty("--l");
+        delete el.dataset.len;
+      }
+      if (fresh.includes(i)) cls += " pop";
+      if (merged.includes(i)) cls += " bump";
+      el.className = cls;
+      el.textContent = v || ".";
+    });
+    $("score").textContent = score;
+    $("best").textContent = best;
+    $("undoBtn").disabled = !prev;
+  }
+
+  function save() { store.set("prak.2048.state", { grid, score, won, over }); }
+
+  function load() {
+    const s = store.get("prak.2048.state", null);
+    if (!s || !Array.isArray(s.grid) || s.grid.length !== 16 || !s.grid.some(Boolean)) return false;
+    grid = s.grid.map(v => (Number.isInteger(v) && v >= 0 ? v : 0));
+    score = +s.score || 0; won = !!s.won; over = !canMove();
+    if (over) say("no moves left — [ new game ]", true);
+    render([], []);
+    return true;
+  }
+
+  const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right" };
+  document.addEventListener("keydown", e => {
+    const k = KEYS[e.key] || KEYS[e.key.toLowerCase()];
+    if (k) { e.preventDefault(); move(k); }
+    else if (e.key === "u" || e.key === "U") undo();
+    else if (e.key === "n" || e.key === "N") newGame();
+  });
+  let sx = 0, sy = 0;
+  boardEl.addEventListener("touchstart", e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  boardEl.addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
+  });
+  $("newBtn").addEventListener("click", () => { newGame(); $("newBtn").blur(); });
+  $("undoBtn").addEventListener("click", () => { undo(); $("undoBtn").blur(); });
+
+  if (!load()) newGame();
+</script>
+</body>
+</html>
