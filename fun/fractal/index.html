@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fractal Explorer · Prak.fun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0e0e0c;--fg:#e8e6df;--dim:#6f6c63;--accent:#7cfc9a;--card:#151512;--bad:#ff6b6b;--warn:#ffd166}
+  @media (prefers-color-scheme: light){:root{--bg:#f4f1e8;--fg:#1b1a17;--dim:#8a8578;--accent:#1f7a3a;--card:#ebe7dc;--bad:#c0392b;--warn:#b7791f}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--fg)}
+  body{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:15px;line-height:1.5;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 40px}
+  .top{width:100%;max-width:860px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px;font-size:13px;color:var(--dim)}
+  .top a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--dim)}
+  .top a:hover{color:var(--accent);border-color:var(--accent)}
+  h1{font-size:22px;color:var(--accent);margin-bottom:4px;text-align:center}
+  .sub{color:var(--dim);font-size:13px;text-align:center;margin-bottom:20px}
+  .hud{display:flex;gap:6px 18px;justify-content:center;flex-wrap:wrap;font-size:13px;margin-bottom:12px;color:var(--dim);max-width:860px}
+  .hud b{color:var(--fg);font-weight:400}
+  .btns{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:14px;max-width:860px}
+  button,select{font:inherit;font-size:13px;background:transparent;color:var(--fg);border:1px dashed var(--dim);padding:6px 12px;cursor:pointer;border-radius:0}
+  select option{background:var(--card);color:var(--fg)}
+  button:hover,button:focus-visible,select:hover,select:focus-visible{border-style:solid;border-color:var(--accent);color:var(--accent);outline:none}
+  button.on{border-style:solid;border-color:var(--accent);color:var(--accent)}
+  [hidden]{display:none!important}
+  .help{margin-top:20px;font-size:12px;color:var(--dim);text-align:center;max-width:600px}
+  .msg{min-height:1.4em;text-align:center;margin-top:10px;font-size:13px;color:var(--warn)}
+
+  #types{margin:0 0 14px}
+  #c{display:block;border:1px dashed var(--dim);cursor:grab;touch-action:none}
+  #c:active{cursor:grabbing}
+  .detail{font-size:13px;color:var(--dim);display:flex;align-items:center;gap:8px}
+  input[type=range]{accent-color:var(--accent);width:110px}
+</style>
+</head>
+<body>
+<div class="top"><a href="../">&lt;- prak.fun</a><span>fractal.exe</span></div>
+<h1>fractal explorer</h1>
+<p class="sub">infinite detail from one tiny equation: z = z² + c</p>
+
+<div class="btns" id="types">
+  <button data-t="mandelbrot">[ mandelbrot ]</button>
+  <button data-t="julia">[ julia ]</button>
+  <button data-t="ship">[ burning ship ]</button>
+  <button data-t="tricorn">[ tricorn ]</button>
+</div>
+<div class="hud">
+  <span>zoom <b id="zoom">1×</b></span>
+  <span>center <b id="center">0</b></span>
+  <span id="cWrap">c <b id="cval">0</b></span>
+  <span>iterations <b id="iters">0</b></span>
+  <span>render <b id="ms">0ms</b></span>
+</div>
+<canvas id="c" aria-label="fractal view — drag to pan, scroll to zoom"></canvas>
+<p class="msg" id="msg"></p>
+<div class="btns">
+  <button id="zin" aria-label="zoom in">[ + ]</button>
+  <button id="zout" aria-label="zoom out">[ - ]</button>
+  <button id="reset">[ reset ]</button>
+  <button id="modeBtn">[ mode: ascii ]</button>
+  <button id="juliaBtn">[ julia at + ]</button>
+  <button id="animBtn">[ animate c ]</button>
+  <button id="saveBtn">[ save png ]</button>
+</div>
+<div class="btns">
+  <select id="places" aria-label="jump to a location"></select>
+  <select id="palette" aria-label="color palette">
+    <option value="matrix">palette: matrix</option>
+    <option value="fire">palette: fire</option>
+    <option value="ice">palette: ice</option>
+    <option value="rainbow">palette: rainbow</option>
+  </select>
+  <label class="detail">detail <input type="range" id="detail" min="50" max="1000" step="10" value="150"></label>
+</div>
+<p class="help">drag to pan · scroll, pinch or double-click to zoom · arrows pan · +/- zoom · m switches ascii/pixels · r resets<br>
+every point c is tested by repeating z → z² + c. if z escapes to infinity, the point is outside, and how fast it escapes picks the character and color.</p>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const cv = $("c"), ctx = cv.getContext("2d");
+  const off = document.createElement("canvas"), offCtx = off.getContext("2d");
+
+  // iter: 0 = z²+c, 1 = burning ship, 2 = tricorn (conjugate)
+  const TYPES = {
+    mandelbrot: { iter: 0, julia: false, flip: false, view: { cx: -0.6, cy: 0, w: 3.4 },
+      places: [["seahorse valley", -0.7453, 0.1127, 0.012], ["elephant valley", 0.2925, 0.0149, 0.02],
+               ["deep spiral", -0.743643887037151, 0.13182590420533, 0.00006], ["mini mandelbrot", -1.7549, 0, 0.035],
+               ["triple spiral", -0.0886, 0.6547, 0.008]] },
+    julia: { iter: 0, julia: true, flip: false, view: { cx: 0, cy: 0, w: 3.4 },
+      places: [["dendrite", 0, 1], ["rabbit", -0.123, 0.745], ["dragon", -0.8, 0.156], ["siegel disk", -0.391, -0.587],
+               ["san marco", -0.75, 0], ["galaxy", 0.285, 0.01], ["lightning", -0.7269, 0.1889]] },
+    ship: { iter: 1, julia: false, flip: true, view: { cx: -0.45, cy: -0.5, w: 3.4 },
+      places: [["the armada", -1.762, -0.028, 0.05]] },
+    tricorn: { iter: 2, julia: false, flip: false, view: { cx: -0.3, cy: 0, w: 3.8 }, places: [] }
+  };
+
+  let type = "mandelbrot", mode = "ascii", palette = "matrix", baseIter = 150;
+  let view = { cx: 0, cy: 0, s: 0.01 }, jc = { re: -0.8, im: 0.156 };
+  let W = 600, H = 400, dpr = 1, snap = null, animating = false, angle = 0;
+  const MIN_S = 2e-16;
+  const ys = () => (TYPES[type].flip ? -1 : 1);
+
+  // ---------- colors ----------
+  let col = {}, lut = [];
+  function hexRgb(h) {
+    h = h.trim().replace("#", "");
+    if (h.length === 3) h = [...h].map(c => c + c).join("");
+    const n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const clamp01 = v => Math.max(0, Math.min(1, v));
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+  function readColors() {
+    const s = getComputedStyle(document.documentElement);
+    col = { bg: hexRgb(s.getPropertyValue("--bg")), fg: hexRgb(s.getPropertyValue("--fg")),
+            dim: hexRgb(s.getPropertyValue("--dim")), accent: hexRgb(s.getPropertyValue("--accent")) };
+    col.bgCss = `rgb(${col.bg.join(",")})`;
+    buildLut();
+  }
+
+  function buildLut() {
+    lut = [];
+    for (let i = 0; i < 256; i++) {
+      const t = i / 255;
+      let c;
+      if (palette === "matrix") c = mix(col.accent, col.fg, clamp01((t - 0.8) * 5));
+      else if (palette === "fire") c = [clamp01(3 * t), clamp01(3 * t - 1), clamp01(3 * t - 2)].map(v => v * 255);
+      else if (palette === "ice") c = [clamp01(3 * t - 2), clamp01(2 * t - 0.6), clamp01(1.6 * t)].map(v => v * 255);
+      else c = [0, 0.33, 0.67].map(d => (0.5 + 0.5 * Math.cos(2 * Math.PI * (t + d))) * 255);
+      lut.push(c);
+    }
+  }
+
+  // returns [r,g,b] for an escape value (mu < 0 means inside the set)
+  function colorOf(mu, it, inside) {
+    if (mu < 0) return inside;
+    const t = tOf(mu);
+    if (palette === "rainbow") return mix(col.bg, lut[(mu * 9) & 255], Math.min(1, t * 2.2));
+    return mix(col.bg, lut[(t * 255) | 0], Math.min(1, Math.pow(t, 1.5) * 1.25));
+  }
+
+  // brightness adapts to each frame: escape values are stretched between the
+  // frame's fastest escapes (dark) and its slowest ones (bright)
+  let lo = 0, span = 1;
+  function tOf(mu) { return Math.min(1, Math.log(1 + Math.max(0, mu - lo)) / Math.log(1 + span)); }
+  function measureFrame(it, T, y) {
+    const vals = [];
+    for (let j = 0; j < 30; j++)
+      for (let i = 0; i < 48; i++) {
+        const re = view.cx + ((i + 0.5) / 48 - 0.5) * W * view.s;
+        const im = view.cy - y * ((j + 0.5) / 30 - 0.5) * H * view.s;
+        const mu = sample(re, im, it, T.iter, T.julia);
+        if (mu >= 0) vals.push(mu);
+      }
+    if (!vals.length) { lo = 0; span = it; return; }
+    vals.sort((a, b) => a - b);
+    lo = vals[0];
+    span = Math.max(6, vals[Math.floor(vals.length * 0.97)] - lo);
+  }
+
+  // ---------- math ----------
+  function escape(cr, ci, zr, zi, maxIt, kind) {
+    let zr2 = zr * zr, zi2 = zi * zi, n = 0;
+    while (n < maxIt && zr2 + zi2 <= 65536) {
+      if (kind === 1) { zr = Math.abs(zr); zi = Math.abs(zi); }
+      else if (kind === 2) zi = -zi;
+      zi = 2 * zr * zi + ci;
+      zr = zr2 - zi2 + cr;
+      zr2 = zr * zr; zi2 = zi * zi; n++;
+    }
+    if (n >= maxIt) return -1;
+    return Math.max(0, n + 1 - Math.log2(0.5 * Math.log(zr2 + zi2)));
+  }
+
+  function maxIter() {
+    const s0 = TYPES[type].view.w / W;
+    return Math.min(6000, Math.round(baseIter + 45 * Math.max(0, Math.log2(s0 / view.s))));
+  }
+
+  function sample(re, im, it, kind, julia) {
+    return julia ? escape(jc.re, jc.im, re, im, it, kind) : escape(re, im, 0, 0, it, kind);
+  }
+
+  // ---------- rendering ----------
+  let token = 0;
+  const nextFrame = () => new Promise(r => requestAnimationFrame(r));
+
+  async function render(opts = {}) {
+    const my = ++token, t0 = performance.now();
+    const T = TYPES[type], it = maxIter(), y = ys();
+    const { cx, cy, s } = view;
+    hud(it);
+    measureFrame(it, T, y);
+
+    if (mode === "ascii") {
+      const cw = 7, ch = 12, RAMP = " .:-=+*%&@";
+      const cols = Math.floor(W / cw), rows = Math.floor(H / ch);
+      const ox = (W - cols * cw) / 2, oy = (H - rows * ch) / 2;
+      const inside = mix(col.bg, col.dim, 0.5);
+      const cells = new Array(rows * cols);
+      let tc = performance.now();
+      for (let r = 0; r < rows; r++) {
+        const im = cy - y * (oy + (r + 0.5) * ch - H / 2) * s;
+        for (let c = 0; c < cols; c++) {
+          const re = cx + (ox + (c + 0.5) * cw - W / 2) * s;
+          const mu = sample(re, im, it, T.iter, T.julia);
+          if (mu < 0) { cells[r * cols + c] = ["#", inside]; continue; }
+          const a = Math.min(1, Math.pow(tOf(mu), 1.5) * 1.25);
+          cells[r * cols + c] = [RAMP[Math.round(a * (RAMP.length - 1))], colorOf(mu, it)];
+        }
+        if (!opts.fast && performance.now() - tc > 14) {
+          await nextFrame();
+          if (my !== token) return;
+          tc = performance.now();
+        }
+      }
+      ctx.fillStyle = col.bgCss;
+      ctx.fillRect(0, 0, W, H);
+      ctx.font = `12px "JetBrains Mono", ui-monospace, monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+          const [chr, rgb] = cells[r * cols + c];
+          if (chr === " ") continue;
+          ctx.fillStyle = `rgb(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0})`;
+          ctx.fillText(chr, ox + (c + 0.5) * cw, oy + (r + 0.5) * ch + 1);
+        }
+    } else {
+      const res = opts.fast ? 0.4 : dpr;
+      const pw = Math.max(1, Math.round(W * res)), ph = Math.max(1, Math.round(H * res));
+      off.width = pw; off.height = ph;
+      const img = offCtx.createImageData(pw, ph), buf = new Uint32Array(img.data.buffer);
+      const sp = s * W / pw, inside = col.bg;
+      let tc = performance.now();
+      ctx.imageSmoothingEnabled = !!opts.fast;
+      for (let py = 0; py < ph; py++) {
+        const im = cy - y * (py + 0.5 - ph / 2) * sp;
+        for (let px = 0; px < pw; px++) {
+          const re = cx + (px + 0.5 - pw / 2) * sp;
+          const c = colorOf(sample(re, im, it, T.iter, T.julia), it, inside);
+          buf[py * pw + px] = (255 << 24) | ((c[2] | 0) << 16) | ((c[1] | 0) << 8) | (c[0] | 0);
+        }
+        if (!opts.fast && performance.now() - tc > 14) {
+          offCtx.putImageData(img, 0, 0);
+          ctx.drawImage(off, 0, 0, W, H);
+          await nextFrame();
+          if (my !== token) return;
+          tc = performance.now();
+        }
+      }
+      offCtx.putImageData(img, 0, 0);
+      ctx.drawImage(off, 0, 0, W, H);
+    }
+
+    // keep a copy for instant pan/zoom previews, then draw overlays
+    snap = snap || document.createElement("canvas");
+    snap.width = cv.width; snap.height = cv.height;
+    snap.getContext("2d").drawImage(cv, 0, 0);
+    snap.view = { ...view }; snap.type = type; snap.W = W;
+    overlay();
+    $("ms").textContent = Math.round(performance.now() - t0) + "ms";
+  }
+
+  function overlay() {
+    if (type !== "mandelbrot") return;
+    ctx.strokeStyle = `rgba(${col.fg.join(",")},0.7)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - 7, H / 2 + 0.5); ctx.lineTo(W / 2 + 8, H / 2 + 0.5);
+    ctx.moveTo(W / 2 + 0.5, H / 2 - 7); ctx.lineTo(W / 2 + 0.5, H / 2 + 8);
+    ctx.stroke();
+  }
+
+  // instantly stretch the last render to the new view while the real one computes
+  function preview() {
+    hud(maxIter());
+    if (!snap || snap.type !== type || snap.W !== W) return;
+    const k = snap.view.s / view.s;
+    const dx = W / 2 + (snap.view.cx - view.cx) / view.s - (k * W) / 2;
+    const dy = H / 2 - ys() * (snap.view.cy - view.cy) / view.s - (k * H) / 2;
+    ctx.fillStyle = col.bgCss;
+    ctx.fillRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(snap, dx, dy, W * k, H * k);
+    overlay();
+  }
+
+  let renderTimer = null;
+  function renderSoon(ms = 140) { clearTimeout(renderTimer); renderTimer = setTimeout(() => render(), ms); }
+
+  // ---------- hud ----------
+  function fmt(v, d) { return (v < 0 ? "−" : "") + Math.abs(v).toFixed(d); }
+  function hud(it) {
+    const z = TYPES[type].view.w / W / view.s;
+    $("zoom").textContent = (z < 1e4 ? (z < 10 ? z.toFixed(1) : Math.round(z)) : z.toExponential(1)) + "×";
+    const d = Math.min(16, Math.max(4, Math.ceil(-Math.log10(view.s * W)) + 3));
+    $("center").textContent = `${fmt(view.cx, d)} ${view.cy < 0 ? "−" : "+"} ${Math.abs(view.cy).toFixed(d)}i`;
+    $("cval").textContent = `${fmt(jc.re, 4)} ${jc.im < 0 ? "−" : "+"} ${Math.abs(jc.im).toFixed(4)}i`;
+    $("iters").textContent = it;
+    $("msg").textContent = view.s <= MIN_S * 1.01 ? "you've hit the floating-point limit — computers run out of digits around here" : "";
+  }
+
+  // ---------- view helpers ----------
+  function toComplex(px, py, v = view) { return { re: v.cx + (px - W / 2) * v.s, im: v.cy - ys() * (py - H / 2) * v.s }; }
+  function zoomAt(px, py, k) {
+    const p = toComplex(px, py);
+    view.s = Math.max(MIN_S, Math.min(view.s * k, 0.05));
+    view.cx = p.re - (px - W / 2) * view.s;
+    view.cy = p.im + ys() * (py - H / 2) * view.s;
+  }
+  function resetView() {
+    const v = TYPES[type].view;
+    view = { cx: v.cx, cy: v.cy, s: v.w / W };
+  }
+
+  function size() {
+    const oldW = W;
+    W = Math.min(document.documentElement.clientWidth - 32, 860);
+    H = Math.round(W * (W < 520 ? 1 : 0.6));
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.style.width = W + "px"; cv.style.height = H + "px";
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    view.s *= oldW / W;
+  }
+
+  // ---------- type / ui ----------
+  function setType(t, keepJulia) {
+    type = t; stopAnim(); resetView(); snap = null;
+    document.querySelectorAll("#types button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+    $("juliaBtn").hidden = t !== "mandelbrot";
+    $("animBtn").hidden = t !== "julia";
+    $("cWrap").hidden = t !== "julia";
+    const pl = $("places"), P = TYPES[t].places;
+    pl.hidden = !P.length;
+    pl.innerHTML = `<option value="">${t === "julia" ? "pick a julia set..." : "jump to..."}</option>` +
+      P.map((p, i) => `<option value="${i}">${p[0]}</option>`).join("");
+    render();
+  }
+
+  function stopAnim() {
+    if (!animating) return;
+    animating = false;
+    $("animBtn").textContent = "[ animate c ]";
+    $("animBtn").classList.remove("on");
+  }
+  async function animLoop() {
+    if (!animating) return;
+    angle += 0.01;
+    jc = { re: 0.7885 * Math.cos(angle), im: 0.7885 * Math.sin(angle) };
+    await render({ fast: true });
+    if (animating) requestAnimationFrame(animLoop);
+    else render();
+  }
+
+  document.querySelectorAll("#types button").forEach(b => b.addEventListener("click", () => setType(b.dataset.t)));
+  $("zin").addEventListener("click", () => { zoomAt(W / 2, H / 2, 0.5); preview(); renderSoon(60); });
+  $("zout").addEventListener("click", () => { zoomAt(W / 2, H / 2, 2); preview(); renderSoon(60); });
+  $("reset").addEventListener("click", () => { resetView(); render(); });
+  $("modeBtn").addEventListener("click", toggleMode);
+  function toggleMode() {
+    mode = mode === "ascii" ? "pixels" : "ascii";
+    $("modeBtn").textContent = `[ mode: ${mode} ]`;
+    $("modeBtn").classList.toggle("on", mode === "pixels");
+    snap = null; render();
+  }
+  $("juliaBtn").addEventListener("click", () => { jc = { re: view.cx, im: view.cy }; setType("julia"); });
+  $("animBtn").addEventListener("click", () => {
+    if (animating) { stopAnim(); return; }
+    animating = true; angle = Math.atan2(jc.im, jc.re);
+    $("animBtn").textContent = "[ stop ]";
+    $("animBtn").classList.add("on");
+    animLoop();
+  });
+  $("saveBtn").addEventListener("click", () => {
+    cv.toBlob(b => {
+      if (!b) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(b);
+      a.download = `prak-fractal-${type}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    });
+  });
+  $("places").addEventListener("change", e => {
+    const i = e.target.value; if (i === "") return;
+    const p = TYPES[type].places[+i];
+    stopAnim();
+    if (type === "julia") { jc = { re: p[1], im: p[2] }; resetView(); }
+    else view = { cx: p[1], cy: p[2], s: p[3] / W };
+    e.target.value = "";
+    render();
+  });
+  $("palette").addEventListener("change", e => { palette = e.target.value; buildLut(); render(); });
+  $("detail").addEventListener("input", e => { baseIter = +e.target.value; renderSoon(200); });
+
+  // ---------- pointer: drag, pinch, wheel ----------
+  const pts = new Map();
+  let drag = null, pinch = null, moved = false;
+  const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+
+  cv.addEventListener("pointerdown", e => {
+    cv.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, pos(e));
+    stopAnim(); moved = false;
+    if (pts.size === 1) drag = { p: pos(e), v: { ...view } };
+    else if (pts.size === 2) {
+      const [a, b] = [...pts.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), m: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, v: { ...view } };
+      drag = null;
+    }
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, pos(e));
+    if (pinch && pts.size >= 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y), m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const P = toComplex(pinch.m.x, pinch.m.y, pinch.v);
+      view.s = Math.max(MIN_S, Math.min(pinch.v.s * (pinch.d / Math.max(d, 1)), 0.05));
+      view.cx = P.re - (m.x - W / 2) * view.s;
+      view.cy = P.im + ys() * (m.y - H / 2) * view.s;
+      moved = true; preview();
+    } else if (drag) {
+      const p = pos(e), dx = p.x - drag.p.x, dy = p.y - drag.p.y;
+      if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+      view.cx = drag.v.cx - dx * view.s;
+      view.cy = drag.v.cy + ys() * dy * view.s;
+      preview();
+    }
+  });
+  function up(e) {
+    pts.delete(e.pointerId);
+    if (pts.size === 1) { const p = [...pts.values()][0]; drag = { p, v: { ...view } }; pinch = null; }
+    if (pts.size === 0) { drag = null; pinch = null; if (moved) render(); }
+  }
+  cv.addEventListener("pointerup", up);
+  cv.addEventListener("pointercancel", up);
+  cv.addEventListener("wheel", e => {
+    e.preventDefault(); stopAnim();
+    const p = pos(e);
+    zoomAt(p.x, p.y, Math.exp(Math.max(-100, Math.min(100, e.deltaY)) * 0.004));
+    preview(); renderSoon();
+  }, { passive: false });
+  cv.addEventListener("dblclick", e => { const p = pos(e); zoomAt(p.x, p.y, 0.4); preview(); render(); });
+
+  document.addEventListener("keydown", e => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    const step = 60;
+    const pan = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (pan) {
+      e.preventDefault();
+      view.cx += pan[0] * view.s; view.cy -= ys() * pan[1] * view.s;
+      preview(); renderSoon(100);
+    } else if (e.key === "+" || e.key === "=") { zoomAt(W / 2, H / 2, 0.5); preview(); renderSoon(60); }
+    else if (e.key === "-" || e.key === "_") { zoomAt(W / 2, H / 2, 2); preview(); renderSoon(60); }
+    else if (e.key === "r") { resetView(); render(); }
+    else if (e.key === "m") toggleMode();
+  });
+
+  window.addEventListener("resize", () => {
+    const w = Math.min(document.documentElement.clientWidth - 32, 860);
+    if (Math.abs(w - W) > 4) { size(); snap = null; renderSoon(150); }
+  });
+  window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { readColors(); snap = null; render(); });
+
+  readColors();
+  size();
+  setType("mandelbrot");
+  if (document.fonts) document.fonts.ready.then(() => { if (mode === "ascii") render(); });
+</script>
+</body>
+</html>
