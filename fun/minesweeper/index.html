@@ -18,7 +18,7 @@
   .top{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px;font-size:13px;color:var(--dim)}
   .top a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--dim)}
   .top a:hover{color:var(--accent);border-color:var(--accent)}
-  h1{font-size:22px;color:var(--accent);margin-bottom:4px;text-align:center}
+  h1{font-size:22px;color:var(--accent);margin-bottom:20px;text-align:center}
   .sub{color:var(--dim);font-size:13px;text-align:center;margin-bottom:20px}
   .hud{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:14px;margin-bottom:16px;color:var(--dim)}
   .hud b{color:var(--fg);font-weight:400}
@@ -46,9 +46,8 @@
 </style>
 </head>
 <body>
-<div class="top"><a href="../">&lt;- prak.fun</a><span>minesweeper.exe</span></div>
+<div class="top"><a href="../">&lt;- prak.fun</a><span></span></div>
 <h1>minesweeper</h1>
-<p class="sub">numbers, logic, and one bad click.</p>
 <div class="btns" style="margin:0 0 16px" id="levels">
   <button data-l="easy">[ easy ]</button>
   <button data-l="medium">[ medium ]</button>
@@ -66,7 +65,7 @@
   <button id="newBtn">[ new game ]</button>
   <button id="flagBtn">[ flag mode: off ]</button>
 </div>
-<p class="help">click to dig · right-click or long-press to flag · click a number whose flags are all placed to clear around it · first click is always safe</p>
+<p class="help">click: dig · right-click / long-press: flag · click a number: clear around it</p>
 
 <script>
   const store = {
@@ -179,7 +178,7 @@
   function lose(i) {
     over = true; boomAt = i; clearInterval(tick);
     $("face").textContent = "(x_x)";
-    say("boom. hit [ new game ] to try again", true);
+    say("game over", true);
   }
 
   function win() {
@@ -190,7 +189,7 @@
     $("time").textContent = t;
     $("face").textContent = "(^_^)";
     const key = "prak.mines.best." + level, b = store.get(key, null);
-    if (b === null || t < b) { store.set(key, t); $("best").textContent = t + "s"; say(`cleared in ${t}s · new best!`); }
+    if (b === null || t < b) { store.set(key, t); $("best").textContent = t + "s"; say(`cleared in ${t}s · new best`); }
     else say(`cleared in ${t}s`);
   }
 

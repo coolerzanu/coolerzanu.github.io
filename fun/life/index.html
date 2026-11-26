@@ -16,7 +16,7 @@
   .top{width:100%;max-width:720px;display:flex;justify-content:space-between;align-items:baseline;margin-bottom:28px;font-size:13px;color:var(--dim)}
   .top a{color:inherit;text-decoration:none;border-bottom:1px dashed var(--dim)}
   .top a:hover{color:var(--accent);border-color:var(--accent)}
-  h1{font-size:22px;color:var(--accent);margin-bottom:4px;text-align:center}
+  h1{font-size:22px;color:var(--accent);margin-bottom:20px;text-align:center}
   .sub{color:var(--dim);font-size:13px;text-align:center;margin-bottom:20px}
   .hud{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:14px;margin-bottom:16px;color:var(--dim)}
   .hud b{color:var(--fg);font-weight:400}
@@ -33,9 +33,8 @@
 </style>
 </head>
 <body>
-<div class="top"><a href="../">&lt;- prak.fun</a><span>life.exe</span></div>
+<div class="top"><a href="../">&lt;- prak.fun</a><span></span></div>
 <h1>game of life</h1>
-<p class="sub">four rules. infinite chaos. draw a pattern and watch.</p>
 <div class="hud"><span>generation <b id="gen">0</b></span><span>alive <b id="pop">0</b></span></div>
 <canvas id="c" aria-label="game of life grid"></canvas>
 <div class="btns">
@@ -56,8 +55,7 @@
   </select>
   <label class="speed">speed <input type="range" id="speed" min="1" max="30" value="10"> <span id="speedVal">10</span>/s</label>
 </div>
-<p class="help">click or drag to draw · space play/pause · s step · r random · c clear<br>
-a live cell with 2 or 3 neighbors survives · a dead cell with exactly 3 comes alive · everything else dies</p>
+<p class="help">click / drag: draw · space: play/pause · s: step · r: random · c: clear</p>
 
 <script>
   const $ = id => document.getElementById(id);

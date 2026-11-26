@@ -150,8 +150,7 @@
 
 <header>
   <pre id="logo" aria-label="Prak.fun"></pre>
-  <p class="tag">&gt; small games, built from scratch<span class="cursor">_</span></p>
-  <p class="status" id="status"></p>
+  <p class="tag">&gt; games<span class="cursor">_</span></p>
 </header>
 
 <main>
@@ -161,7 +160,6 @@
 
 <footer>
   <p><a href="/">&lt;- back to prakshab's site</a></p>
-  <p>made with plain html and way too many # characters</p>
 </footer>
 
 <script>
@@ -172,7 +170,7 @@
   const GAMES = [
     {
       title: "minesweeper",
-      desc: "numbers, logic, and one bad click.",
+      desc: "three difficulties.",
       status: "live",
       href: "minesweeper/",
       icon:
@@ -184,7 +182,7 @@
     },
     {
       title: "game of life",
-      desc: "four rules. infinite chaos. draw a pattern and watch.",
+      desc: "conway's cellular automaton.",
       status: "live",
       href: "life/",
       icon:
@@ -196,7 +194,7 @@
     },
     {
       title: "fractal explorer",
-      desc: "zoom forever into the mandelbrot set, drawn in ascii.",
+      desc: "mandelbrot, julia, burning ship, tricorn.",
       status: "live",
       href: "fractal/",
       icon:
@@ -206,18 +204,6 @@
 |   ':#:  |
 +---------+`
     },
-    {
-      title: "???",
-      desc: "something new is being built here.",
-      status: "soon",
-      href: "#",
-      icon:
-`+---------+
-|   ???   |
-|     ?   |
-|    .    |
-+---------+`
-    }
   ];
 
   /* ---------- logo: block letters built from a tiny pixel font ---------- */
@@ -306,11 +292,6 @@
     }
     grid.appendChild(el);
   });
-
-  /* ---------- status line ---------- */
-  const liveCount = GAMES.filter(g => g.status === "live").length;
-  document.getElementById("status").innerHTML =
-    `<b>${liveCount}</b> playable &middot; <b>${GAMES.length - liveCount}</b> in the workshop`;
 </script>
 </body>
 </html>
